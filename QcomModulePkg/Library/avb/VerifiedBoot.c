@@ -34,6 +34,7 @@
 #include <Library/VerifiedBootMenu.h>
 #include <Library/LEOEMCertificate.h>
 #include <Library/HypervisorMvCalls.h>
+#include <LinuxLoaderLib.h>
 
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
@@ -1350,6 +1351,9 @@ skip_verification:
             return EFI_LOAD_ERROR;
         }
         GUARD (AppendVBCmdLine (Info, SystemPath));
+    }
+    if(IsSecureBootEnabled ()){
+        GUARD (AppendVBCmdLine (Info, KeymasterLoadState));
     }
     return Status;
 }
