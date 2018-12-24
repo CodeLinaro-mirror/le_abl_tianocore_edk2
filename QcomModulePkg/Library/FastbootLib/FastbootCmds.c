@@ -71,6 +71,7 @@ found at
 #include <Protocol/EFIUbiFlasher.h>
 #include <Protocol/SimpleTextIn.h>
 #include <Protocol/SimpleTextOut.h>
+#include <Protocol/EFIDisplayUtils.h>
 
 #include "AutoGen.h"
 #include "BootImage.h"
@@ -235,7 +236,7 @@ STATIC VOID
 FastbootPublishVar (IN CONST CHAR8 *Name, IN CONST CHAR8 *Value)
 {
   FASTBOOT_VAR *Var;
-  Var = AllocatePool (sizeof (*Var));
+  Var = AllocateZeroPool (sizeof (*Var));
   if (Var) {
     Var->next = Varlist;
     Varlist = Var;
@@ -481,13 +482,12 @@ STATIC VOID PopulateMultislotMetadata (VOID)
     FastbootPublishVar ("slot-count", SlotCountVar);
 
     /*Allocate memory for available number of slots*/
-    BootSlotInfo = AllocatePool (SlotCount * sizeof (struct GetVarSlotInfo));
+    BootSlotInfo = AllocateZeroPool (
+                         SlotCount * sizeof (struct GetVarSlotInfo));
     if (BootSlotInfo == NULL) {
       DEBUG ((EFI_D_ERROR, "Unable to allocate memory for BootSlotInfo\n"));
       return;
     }
-    gBS->SetMem ((VOID *)BootSlotInfo,
-                 SlotCount * sizeof (struct GetVarSlotInfo), 0);
     FastbootPublishSlotVars ();
     InitialPopulate = TRUE;
   } else {
@@ -635,7 +635,7 @@ HandleChunkTypeFill (sparse_header_t *sparse_header,
     return EFI_INVALID_PARAMETER;
   }
 
-  FillBuf = AllocatePool (sparse_header->blk_sz);
+  FillBuf = AllocateZeroPool (sparse_header->blk_sz);
   if (!FillBuf) {
     DEBUG ((EFI_D_ERROR, "Malloc failed for: CHUNK_TYPE_FILL\n"));
     return EFI_OUT_OF_RESOURCES;
@@ -2116,7 +2116,7 @@ FastbootRegister (IN CONST CHAR8 *prefix,
 {
   FASTBOOT_CMD *cmd;
 
-  cmd = AllocatePool (sizeof (*cmd));
+  cmd = AllocateZeroPool (sizeof (*cmd));
   if (cmd) {
     cmd->prefix = prefix;
     cmd->prefix_len = AsciiStrLen (prefix);
@@ -2372,6 +2372,32 @@ CmdRebootBootloader (CONST CHAR8 *arg, VOID *data, UINT32 sz)
 
 #if (defined(ENABLE_DEVICE_CRITICAL_LOCK_UNLOCK_CMDS) ||                       \
      defined(ENABLE_UPDATE_PARTITIONS_CMDS))
+STATIC UINT8
+is_display_supported ( VOID )
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  EfiQcomDisplayUtilsProtocol *pDisplayUtilProtocol;
+  EFI_GUID DisplayUtilGUID = EFI_DISPLAYUTILS_PROTOCOL_GUID;
+  EFI_DISPLAY_UTILS_PANEL_CONFIG_PARAMS PanelConfig;
+  UINT32 Index = 0;
+  UINT32 ParamSize = sizeof (PanelConfig);
+  PanelConfig.uPanelIndex = Index;
+
+  if (EFI_SUCCESS == (Status = gBS->LocateProtocol (&DisplayUtilGUID,
+                                    NULL,
+                                    (VOID **)&pDisplayUtilProtocol))) {
+     Status = pDisplayUtilProtocol->DisplayUtilsGetProperty (
+                                     EFI_DISPLAY_UTILS_PANEL_CONFIG,
+                                    (VOID*)&PanelConfig, &ParamSize);
+     if ( Status == EFI_NOT_FOUND ) {
+       DEBUG ((EFI_D_VERBOSE, "Display is not supported\n"));
+       return 0;
+     }
+   }
+   DEBUG ((EFI_D_VERBOSE, "Display is enabled\n"));
+   return 1;
+}
+
 STATIC VOID
 SetDeviceUnlock (UINT32 Type, BOOLEAN State)
 {
@@ -2397,7 +2423,8 @@ SetDeviceUnlock (UINT32 Type, BOOLEAN State)
   }
 
 
-  if (GetAVBVersion () != AVB_LE) {
+  if (GetAVBVersion () != AVB_LE &&
+      is_display_supported ()) {
     Status = DisplayUnlockMenu (Type, State);
     if (Status != EFI_SUCCESS) {
       FastbootFail ("Command not support: the display is not enabled");
@@ -2769,7 +2796,7 @@ CheckPartitionFsSignature (IN CHAR16 *PartName,
   }
 
   BlkSz = BlockIo->Media->BlockSize;
-  FsSuperBlkBuffer = AllocatePool (BlkSz);
+  FsSuperBlkBuffer = AllocateZeroPool (BlkSz);
   if (!FsSuperBlkBuffer) {
     DEBUG ((EFI_D_ERROR, "Failed to allocate buffer for superblock %s\n",
                             PartName));
@@ -2973,7 +3000,7 @@ ReadAllowUnlockValue (UINT32 *IsAllowUnlock)
   if (!BlockIo)
     return EFI_NOT_FOUND;
 
-  Buffer = AllocatePool (BlockIo->Media->BlockSize);
+  Buffer = AllocateZeroPool (BlockIo->Media->BlockSize);
   if (!Buffer) {
     DEBUG ((EFI_D_ERROR, "Failed to allocate memory for unlock value \n"));
     return EFI_OUT_OF_RESOURCES;
