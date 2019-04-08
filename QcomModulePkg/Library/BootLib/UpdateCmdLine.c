@@ -3,7 +3,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,7 +48,10 @@
 #include "Recovery.h"
 #include "LECmdLine.h"
 
+STATIC CONST CHAR8 *DynamicBootDeviceCmdLine =
+                                      " androidboot.boot_devices=soc/";
 STATIC CONST CHAR8 *BootDeviceCmdLine = " androidboot.bootdevice=";
+
 STATIC CONST CHAR8 *UsbSerialCmdLine = " androidboot.serialno=";
 STATIC CONST CHAR8 *AndroidBootMode = " androidboot.mode=";
 STATIC CONST CHAR8 *LogLevel = " quite";
@@ -209,7 +212,7 @@ TargetBatterySocOk (UINT32 *BatteryVoltage)
 {
   EFI_STATUS Status = EFI_SUCCESS;
   EFI_CHARGER_EX_PROTOCOL *ChgDetectProtocol = NULL;
-  EFI_CHARGER_EX_FLASH_INFO FlashInfo;
+  EFI_CHARGER_EX_FLASH_INFO FlashInfo = {0};
   BOOLEAN BatteryPresent = FALSE;
   BOOLEAN ChargerPresent = FALSE;
 
@@ -240,7 +243,12 @@ TargetBatterySocOk (UINT32 *BatteryVoltage)
     *BatteryVoltage = FlashInfo.BattCurrVoltage;
     if (!(FlashInfo.bCanFlash) ||
         (*BatteryVoltage < FlashInfo.BattRequiredVoltage))
+    {
+      DEBUG ((EFI_D_ERROR, "Error battery voltage: %d "
+        "Requireed voltage: %d, can flash: %d\n", *BatteryVoltage,
+        FlashInfo.BattRequiredVoltage, FlashInfo.bCanFlash));
       return FALSE;
+    }
     return TRUE;
   } else {
     Status = TargetCheckBatteryStatus (&BatteryPresent, &ChargerPresent,
@@ -252,6 +260,8 @@ TargetBatterySocOk (UINT32 *BatteryVoltage)
       return TRUE;
     }
 
+    DEBUG ((EFI_D_ERROR, "Error battery check status: %r voltage: %d\n",
+        Status, *BatteryVoltage));
     return FALSE;
   }
 }
@@ -386,6 +396,16 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
 
     Src = Param->BootDevBuf;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+
+    /* Dynamic partition append boot_devices for super partition */
+    if (IsDynamicPartitionSupport ()) {
+      Src = DynamicBootDeviceCmdLine;
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+
+      Src = Param->BootDevBuf;
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    }
+
     FreePool (Param->BootDevBuf);
     Param->BootDevBuf = NULL;
   }
@@ -448,11 +468,13 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
       !Param->MultiSlotBoot) ||
       (Param->MultiSlotBoot &&
       !IsBootDevImage ())) {
-    /* Skip Initramfs*/
-    if (!Param->Recovery) {
-      Src = Param->SkipRamFs;
-      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
-    }
+
+       /* Skip Initramfs*/
+       if (!IsDynamicPartitionSupport () &&
+           !Param->Recovery) {
+         Src = Param->SkipRamFs;
+         AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+       }
 
      /* Add root command line */
      Src = Param->RootCmdLine;
@@ -564,6 +586,10 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   } else {
     CmdLineLen += AsciiStrLen (BootDeviceCmdLine);
     CmdLineLen += AsciiStrLen (BootDevBuf);
+    if (IsDynamicPartitionSupport ()) {
+      CmdLineLen += AsciiStrLen (DynamicBootDeviceCmdLine);
+      CmdLineLen += AsciiStrLen (BootDevBuf);
+    }
   }
 
   CmdLineLen += AsciiStrLen (UsbSerialCmdLine);
@@ -615,8 +641,9 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
     CmdLineLen += AsciiStrLen (RootCmdLine);
     CmdLineLen += AsciiStrLen (InitCmdline);
 
-    if (!Recovery)
-      CmdLineLen += AsciiStrLen (SkipRamFs);
+       if (!IsDynamicPartitionSupport () &&
+           !Recovery)
+         CmdLineLen += AsciiStrLen (SkipRamFs);
   }
 
   GetDisplayCmdline ();

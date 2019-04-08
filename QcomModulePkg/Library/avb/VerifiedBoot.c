@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -367,7 +367,8 @@ LoadImageNoAuthWrapper (BootInfo *Info)
   GUARD (VBAllocateCmdLine (Info));
   GUARD (LoadImageNoAuth (Info));
 
-  if (!IsRootCmdLineUpdated (Info)) {
+   if (!IsDynamicPartitionSupport () &&
+        !IsRootCmdLineUpdated (Info)) {
     SystemPathLen = GetSystemPath (&SystemPath,
                                    Info->MultiSlotBoot,
                                    Info->BootIntoRecovery,
@@ -781,6 +782,19 @@ static VOID AddRequestedPartition (CHAR8 **RequestedPartititon, UINT32 Index)
   }
 }
 
+STATIC VOID
+ComputeVbMetaDigest (AvbSlotVerifyData* SlotData, CHAR8* Digest) {
+  size_t Index;
+  AvbSHA256Ctx Ctx;
+  avb_sha256_init (&Ctx);
+  for (Index = 0; Index < SlotData->num_vbmeta_images; Index++) {
+    avb_sha256_update (&Ctx,
+                SlotData->vbmeta_images[Index].vbmeta_data,
+                SlotData->vbmeta_images[Index].vbmeta_size);
+  }
+  avb_memcpy (Digest, avb_sha256_final(&Ctx), AVB_SHA256_DIGEST_SIZE);
+}
+
 STATIC EFI_STATUS
 LoadImageAndAuthVB2 (BootInfo *Info)
 {
@@ -797,7 +811,7 @@ LoadImageAndAuthVB2 (BootInfo *Info)
   CHAR8 **RequestedPartition = NULL;
   UINTN NumRequestedPartition = 0;
   INT32 Index = INVALID_PTN;
-  UINT32 ImageHdrSize = 0;
+  UINT32 ImageHdrSize = BOOT_IMG_MAX_PAGE_SIZE;
   UINT32 PageSize = 0;
   UINT32 ImageSizeActual = 0;
   VOID *ImageBuffer = NULL;
@@ -809,6 +823,7 @@ LoadImageAndAuthVB2 (BootInfo *Info)
                              : AVB_SLOT_VERIFY_FLAGS_NONE;
   AvbHashtreeErrorMode VerityFlags =
       AVB_HASHTREE_ERROR_MODE_RESTART_AND_INVALIDATE;
+  CHAR8 Digest[AVB_SHA256_DIGEST_SIZE];
 
   Info->BootState = RED;
   GUARD (VBCommonInit (Info));
@@ -852,7 +867,8 @@ LoadImageAndAuthVB2 (BootInfo *Info)
   }
   RequestedPartition = RequestedPartitionAll;
 
-  if ((!Info->MultiSlotBoot) &&
+  if ( ( (!Info->MultiSlotBoot) ||
+           IsDynamicPartitionSupport ()) &&
            Info->BootIntoRecovery) {
     AddRequestedPartition (RequestedPartitionAll, IMG_RECOVERY);
     NumRequestedPartition += 1;
@@ -992,9 +1008,9 @@ LoadImageAndAuthVB2 (BootInfo *Info)
   VBData->SlotData = SlotData;
   Info->VBData = (VOID *)VBData;
 
-  GetPageSize (&ImageHdrSize);
   GUARD_OUT (GetImage (Info, &ImageBuffer, &ImageSize,
-                    ((!Info->MultiSlotBoot) &&
+                    ( (!Info->MultiSlotBoot ||
+                     IsDynamicPartitionSupport ()) &&
                      Info->BootIntoRecovery) ?
                      "recovery" : "boot"));
 
@@ -1030,7 +1046,8 @@ LoadImageAndAuthVB2 (BootInfo *Info)
   Data.SystemVersion = (BootImgHdr->os_version & 0xFFFFF800) >> 11;
 
   GUARD_OUT (KeyMasterSetRotAndBootState (&Data));
-
+  ComputeVbMetaDigest (SlotData, (CHAR8 *)&Digest);
+  GUARD_OUT (SetVerifiedBootHash ((CONST CHAR8 *)&Digest, sizeof(Digest)));
   DEBUG ((EFI_D_INFO, "VB2: Authenticate complete! boot state is: %a\n",
           VbSn[Info->BootState].name));
 
@@ -1156,15 +1173,23 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
     UINT32 SigSize = 0;
     CHAR8 *SystemPath = NULL;
     UINT32 SystemPathLen = 0;
-
+    BOOLEAN SecureDevice = FALSE;
     /*Load image*/
     GUARD (VBAllocateCmdLine (Info));
     GUARD (VBCommonInit (Info));
     GUARD (LoadImageNoAuth (Info));
 
-    if (!TargetBuildVariantUser ()) {
-       DEBUG ((EFI_D_INFO, "VB: verification skipped for debug builds\n"));
-       goto skip_verification;
+    Status = IsSecureDevice (&SecureDevice);
+    if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "VB: Failed read device state: %r\n", Status));
+        return Status;
+    }
+
+    if (!SecureDevice) {
+        if (!TargetBuildVariantUser () ) {
+            DEBUG ((EFI_D_INFO, "VB: verification skipped for debug builds\n"));
+            goto skip_verification;
+        }
     }
 
     /* Initialize Verified Boot*/
@@ -1275,8 +1300,17 @@ LoadImageAndAuth (BootInfo *Info)
       return EFI_LOAD_ERROR;
     }
 
-    GUARD (StrnCpyS (Info->Pname, ARRAY_SIZE (Info->Pname), L"boot",
+    if (IsDynamicPartitionSupport () &&
+          Info->BootIntoRecovery) {
+      DEBUG ((EFI_D_INFO, "Booting Into Recovery Mode\n"));
+      StrnCpyS (Info->Pname, ARRAY_SIZE (Info->Pname), L"recovery",
+                     StrLen (L"recovery"));
+    } else {
+      DEBUG ((EFI_D_INFO, "Booting Into Mission Mode\n"));
+      GUARD (StrnCpyS (Info->Pname, ARRAY_SIZE (Info->Pname), L"boot",
                      StrLen (L"boot")));
+    }
+
     GUARD (StrnCatS (Info->Pname, ARRAY_SIZE (Info->Pname), CurrentSlot.Suffix,
                      StrLen (CurrentSlot.Suffix)));
   }

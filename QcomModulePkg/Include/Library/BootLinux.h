@@ -89,10 +89,7 @@
  * a uncompressed kernel + appended dtb */
 #define PATCHED_KERNEL_MAGIC "UNCOMPRESSED_IMG"
 
-/* Size reserved for the ramdisk and dt images,
- * the load address for each of them computed as
- * kernel load address + reserved kernel size - reserved size of ramdisk/dt */
-#define RAMDISK_SIZE_8MB (8 * 1024 * 1024)
+// Size reserved for DT image
 #define DT_SIZE_2MB      (2 * 1024 * 1024)
 
 #define KERNEL_32BIT_LOAD_OFFSET 0x8000
@@ -161,10 +158,6 @@ typedef struct BootLinuxParamlist {
   UINT64 KernelEndAddr;
   UINT64 RamdiskLoadAddr;
   UINT64 DeviceTreeLoadAddr;
-
-  // Reserved kernel size queried from UEFI Core
-  UINT64 KernelSizeReserved;
-
   UINT64 HypDtboAddr;
   UINT64 MemorySize;
  //Get the below fields info from the bootimage header
@@ -174,6 +167,7 @@ typedef struct BootLinuxParamlist {
   UINT32 RamdiskSize;
   UINT32 RamdiskOffset;
   UINT32 PatchedKernelHdrSize;
+  UINT32 DtbOffset;
 
   //Kernel size rounded off based on the page size
   UINT32 KernelSizeActual;
@@ -181,6 +175,8 @@ typedef struct BootLinuxParamlist {
   CHAR8 *FinalCmdLine;
   CHAR8 *CmdLine;
   BOOLEAN BootingWith32BitKernel;
+  BOOLEAN BootingWithPatchedKernel;
+  BOOLEAN BootingWithGzipPkgKernel;
 } BootParamlist;
 
 EFI_STATUS
@@ -211,5 +207,6 @@ VOID SetBootDevImage (VOID);
 VOID ResetBootDevImage (VOID);
 BOOLEAN IsBootDevImage (VOID);
 BOOLEAN IsABRetryCountDisabled (VOID);
+BOOLEAN IsDynamicPartitionSupport (VOID);
 UINT64 SetandGetLoadAddr (BootParamlist *BootParamlistPtr, AddrType Type);
 #endif
