@@ -30,6 +30,12 @@
  *
  */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include <Library/DeviceInfo.h>
 #include <Library/DrawUI.h>
 #include <Library/PartitionTableUpdate.h>
@@ -912,10 +918,27 @@ skip_FfbmStr:
     return EFI_BAD_BUFFER_SIZE;
   }
 
-  Status = UpdateBootParams (&BootParamlistPtr, FlashlessBoot);
-  if (Status != EFI_SUCCESS) {
-    return Status;
+  /* Use information in fastboot header if kernel address >= 0xa0000000 */
+  if (((boot_img_hdr *)(BootParamlistPtr.ImageBuffer))->kernel_addr < 0xa0000000) {
+    Status = UpdateBootParams (&BootParamlistPtr, FlashlessBoot);
+    if (Status != EFI_SUCCESS) {
+      return Status;
+    }
+  } else {
+    UINT64 KernelSizeReserved;
+
+    KernelSizeReserved = PcdGet32 (RamdiskEndAddress);
+
+    BootParamlistPtr.KernelLoadAddr =
+                 ((boot_img_hdr *)(BootParamlistPtr.ImageBuffer))->kernel_addr;
+    BootParamlistPtr.RamdiskLoadAddr =
+                 ((boot_img_hdr *)(BootParamlistPtr.ImageBuffer))->ramdisk_addr;
+    BootParamlistPtr.DeviceTreeLoadAddr =
+                 ((boot_img_hdr *)(BootParamlistPtr.ImageBuffer))->tags_addr;
+    BootParamlistPtr.KernelEndAddr = BootParamlistPtr.BaseMemory +
+                                       KernelSizeReserved;
   }
+
   SetandGetLoadAddr (&BootParamlistPtr, LOAD_ADDR_NONE);
   Status = GZipPkgCheck (&BootParamlistPtr);
   if (Status != EFI_SUCCESS) {
