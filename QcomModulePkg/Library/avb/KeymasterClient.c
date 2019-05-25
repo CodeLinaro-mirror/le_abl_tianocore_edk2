@@ -329,6 +329,16 @@ KeyMasterSetRotAndBootState (KMRotAndBootState *BootState)
 }
 
 EFI_STATUS
+StartKeyMaster (void)
+{
+  /*bring up keymaster*/
+  EFI_STATUS Status = EFI_SUCCESS;
+  KMHandle Handle = {NULL};
+  GUARD (KeyMasterStartApp (&Handle));
+  return Status;
+}
+
+EFI_STATUS
 SetVerifiedBootHash (CONST CHAR8 *Vbh, UINTN VbhSize)
 {
   EFI_STATUS Status = EFI_SUCCESS;
