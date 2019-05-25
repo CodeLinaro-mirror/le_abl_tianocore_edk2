@@ -391,6 +391,7 @@ LoadImageNoAuthWrapper (BootInfo *Info)
 
   GUARD (VBAllocateCmdLine (Info));
   GUARD (LoadImageNoAuth (Info));
+  GUARD (StartKeyMaster ());
 
    if (!IsDynamicPartitionSupport () &&
         !IsRootCmdLineUpdated (Info)) {
