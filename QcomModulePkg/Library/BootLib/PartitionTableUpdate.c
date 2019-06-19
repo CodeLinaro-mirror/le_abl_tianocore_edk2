@@ -1050,6 +1050,7 @@ UpdatePartitionTable (UINT8 *GptImage,
   return Status;
 }
 
+#if 0
 STATIC CONST struct PartitionEntry *
 GetPartitionEntry (CHAR16 *Partition)
 {
@@ -1063,6 +1064,7 @@ GetPartitionEntry (CHAR16 *Partition)
   }
   return &PtnEntries[Index];
 }
+#endif
 
 STATIC struct PartitionEntry *
 GetBootPartitionEntry (Slot *BootSlot)
@@ -1407,6 +1409,7 @@ EFI_STATUS ClearUnbootable (VOID)
   return EFI_SUCCESS;
 }
 
+#if 0
 STATIC EFI_STATUS
 ValidateSlotGuids (Slot *BootableSlot)
 {
@@ -1469,6 +1472,7 @@ ValidateSlotGuids (Slot *BootableSlot)
   DEBUG ((EFI_D_INFO, "Booting from slot (%s)\n", BootableSlot->Suffix));
   return EFI_SUCCESS;
 }
+#endif
 
 EFI_STATUS
 FindBootableSlot (Slot *BootableSlot)
@@ -1522,10 +1526,12 @@ FindBootableSlot (Slot *BootableSlot)
     GUARD_OUT (HandleActiveSlotUnbootable ());
   }
 
+#if 0
   /* Validate slot suffix and partition guids */
   if (Status == EFI_SUCCESS) {
     GUARD_OUT (ValidateSlotGuids (BootableSlot));
   }
+#endif
   MarkPtnActive (BootableSlot->Suffix);
 out:
   if (Status != EFI_SUCCESS) {
