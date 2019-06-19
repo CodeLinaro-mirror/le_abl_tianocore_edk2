@@ -603,12 +603,16 @@ BootLinux (BootInfo *Info)
     BootDevImage = TRUE;
   }
 
+#if 0
   Status = UpdateCmdLine (BootParamlistPtr.CmdLine, FfbmStr, Recovery,
                    AlarmBoot, Info->VBCmdLine, &BootParamlistPtr.FinalCmdLine);
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
     return Status;
   }
+#else
+  BootParamlistPtr.FinalCmdLine = BootParamlistPtr.CmdLine;
+#endif
 
   Info->HeaderVersion = ((boot_img_hdr *)
                          (BootParamlistPtr.ImageBuffer))->header_version;
