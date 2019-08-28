@@ -397,6 +397,7 @@ MenuKeysHandler (IN EFI_EVENT Event, IN VOID *Context)
       if (MenuPagesAction[MenuInfo->Info.MenuType].Down_Action_Func != NULL)
         MenuPagesAction[MenuInfo->Info.MenuType].Down_Action_Func (MenuInfo);
       break;
+    case SCAN_RIGHT:
     case SCAN_SUSPEND:
       if (MenuPagesAction[MenuInfo->Info.MenuType].Enter_Action_Func != NULL)
         MenuPagesAction[MenuInfo->Info.MenuType].Enter_Action_Func (MenuInfo);
