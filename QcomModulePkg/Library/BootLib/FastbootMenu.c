@@ -175,6 +175,8 @@ UpdateFastbootOptionItem (UINT32 OptionItem, UINT32 *pLocation)
     return EFI_OUT_OF_RESOURCES;
   }
 
+  DEBUG ((EFI_D_INFO, "Fastboot Action (Press <Right> to select): %s\n", mFastbootOptionTitle[OptionItem].Msg));
+
   SetMenuMsgInfo (FastbootLineInfo, "__________", COMMON_FACTOR,
                   mFastbootOptionTitle[OptionItem].FgColor,
                   mFastbootOptionTitle[OptionItem].BgColor, LINEATION, Location,
