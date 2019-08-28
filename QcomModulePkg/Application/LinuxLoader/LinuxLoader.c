@@ -190,6 +190,7 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
     FindPtnActiveSlot ();
   }
 
+  DEBUG ((EFI_D_INFO, "Press <Down> to enter fastboot, <Up> to enter recovery, or <ESC> to enter EmergencyDLOAD\n"));
   Status = GetKeyPress (&KeyPressed);
   if (Status == EFI_SUCCESS) {
     if (KeyPressed == SCAN_DOWN)
