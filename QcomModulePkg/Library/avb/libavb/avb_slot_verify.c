@@ -384,7 +384,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
   size_t num_descriptors;
   size_t n;
   bool is_main_vbmeta;
-  bool is_vbmeta_partition;
+  bool look_for_vbmeta_footer;
   AvbVBMetaData* vbmeta_image_data = NULL;
 
   ret = AVB_SLOT_VERIFY_RESULT_OK;
@@ -399,7 +399,14 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
    * vbmeta struct.
    */
   is_main_vbmeta = (rollback_index_location == 0);
-  is_vbmeta_partition = (avb_strcmp(partition_name, "vbmeta") == 0);
+
+  /* Don't use footers for vbmeta partitions ('vbmeta' or
+   * 'vbmeta_<partition_name>').
+   */
+  look_for_vbmeta_footer = true;
+  if (Avb_StrnCmp(partition_name, "vbmeta", avb_strlen("vbmeta")) == 0) {
+    look_for_vbmeta_footer = false;
+  }
 
   if (!avb_validate_utf8((const uint8_t*)partition_name, partition_name_len)) {
     avb_error("Partition name is not valid UTF-8.\n");
@@ -427,7 +434,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
    */
   vbmeta_offset = 0;
   vbmeta_size = VBMETA_MAX_SIZE;
-  if (!is_vbmeta_partition) {
+  if (look_for_vbmeta_footer) {
     uint8_t footer_buf[AVB_FOOTER_SIZE];
     size_t footer_num_read;
     AvbFooter footer;
@@ -495,7 +502,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
      * go try to get it from the boot partition instead.
      */
     if (is_main_vbmeta && io_ret == AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION &&
-        is_vbmeta_partition) {
+        !look_for_vbmeta_footer) {
       avb_debugv(full_partition_name,
                  ": No such partition. Trying 'boot' instead.\n",
                  NULL);
@@ -1280,6 +1287,35 @@ out:
   return ret;
 }
 
+static bool has_system_partition(AvbOps* ops, const char* ab_suffix) {
+  char part_name[PART_NAME_MAX_SIZE];
+  char* system_part_name = "system";
+  char guid_buf[37];
+  AvbIOResult io_ret;
+
+  if (!avb_str_concat(part_name,
+                      sizeof part_name,
+                      system_part_name,
+                      avb_strlen(system_part_name),
+                      ab_suffix,
+                      avb_strlen(ab_suffix))) {
+    avb_error("System partition name and suffix does not fit.\n");
+    return false;
+  }
+
+  io_ret = ops->get_unique_guid_for_partition(
+      ops, part_name, guid_buf, sizeof guid_buf);
+  if (io_ret == AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION) {
+    avb_debug("No system partition.\n");
+    return false;
+  } else if (io_ret != AVB_IO_RESULT_OK) {
+    avb_error("Error getting unique GUID for system partition.\n");
+    return false;
+  }
+
+  return true;
+}
+
 AvbSlotVerifyResult avb_slot_verify(AvbOps* ops,
                                     const char* const* requested_partitions,
                                     const char* ab_suffix,
@@ -1382,8 +1418,16 @@ AvbSlotVerifyResult avb_slot_verify(AvbOps* ops,
        * that the system partition is mounted.
        */
       avb_assert(slot_data->cmdline == NULL);
-      slot_data->cmdline =
-          avb_strdup("root=PARTUUID=$(ANDROID_SYSTEM_PARTUUID)");
+      // Devices with dynamic partitions won't have system partition.
+      // Instead, it has a large super partition to accommodate *.img files.
+      // See b/119551429 for details.
+      if (has_system_partition(ops, ab_suffix)) {
+        slot_data->cmdline =
+            avb_strdup("root=PARTUUID=$(ANDROID_SYSTEM_PARTUUID)");
+      } else {
+        // The |cmdline| field should be a NUL-terminated string.
+        slot_data->cmdline = avb_strdup("");
+      }
       if (slot_data->cmdline == NULL) {
         ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
         goto fail;
@@ -1403,7 +1447,7 @@ AvbSlotVerifyResult avb_slot_verify(AvbOps* ops,
       }
     }
     /* Substitute $(ANDROID_SYSTEM_PARTUUID) and friends. */
-    if (slot_data->cmdline != NULL) {
+    if (slot_data->cmdline != NULL && avb_strlen(slot_data->cmdline) != 0) {
       char* new_cmdline;
       new_cmdline = sub_cmdline(
           ops, slot_data->cmdline, ab_suffix, using_boot_for_vbmeta);
