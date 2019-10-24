@@ -141,6 +141,9 @@
   !if $(ENABLE_SYSTEMD_BOOTSLOT)
       GCC:*_*_*_CC_FLAGS = -DENABLE_SYSTEMD_BOOTSLOT
   !endif
+  !if $(RW_ROOTFS)
+      GCC:*_*_*_CC_FLAGS = -DRW_ROOTFS
+  !endif
 
 [PcdsFixedAtBuild.common]
 
