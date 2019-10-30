@@ -331,10 +331,56 @@ KeyMasterSetRotAndBootState (KMRotAndBootState *BootState)
 EFI_STATUS
 StartKeyMaster (void)
 {
+  KMSetRotReq RotReq = {0};
+  KMSetRotRsp RotRsp = {0};
+  KMSetBootStateReq BootStateReq = {0};
+  KMSetBootStateRsp BootStateRsp = {0};
+
   /*bring up keymaster*/
   EFI_STATUS Status = EFI_SUCCESS;
   KMHandle Handle = {NULL};
   GUARD (KeyMasterStartApp (&Handle));
+
+  /* Set ROT */
+  RotReq.CmdId = KEYMASTER_SET_ROT;
+  RotReq.RotOffset = (UINT8 *)&RotReq.RotDigest - (UINT8 *)&RotReq;
+  RotReq.RotSize = sizeof (RotReq.RotDigest);
+  SetMem (RotReq.RotDigest, 0, AVB_SHA256_DIGEST_SIZE);
+
+  Status = Handle.QseeComProtocol->QseecomSendCmd (
+      Handle.QseeComProtocol, Handle.AppId, (UINT8 *)&RotReq, sizeof (RotReq),
+      (UINT8 *)&RotRsp, sizeof (RotRsp));
+  if (Status != EFI_SUCCESS || RotRsp.Status != 0) {
+    DEBUG ((EFI_D_ERROR, "KeyMasterSendRotAndBootState: Set ROT err, "
+                         "Status: %r, response status: %d\n",
+            Status, RotRsp.Status));
+    return EFI_LOAD_ERROR;
+  }
+
+  /* Set Boot State */
+  BootStateReq.CmdId = KEYMASTER_SET_BOOT_STATE;
+  BootStateReq.Version = 0;
+  BootStateReq.Size = sizeof (BootStateReq.BootState);
+  BootStateReq.Offset =
+      (UINT8 *)&BootStateReq.BootState - (UINT8 *)&BootStateReq;
+  BootStateReq.BootState.Color = GREEN;
+  BootStateReq.BootState.IsUnlocked = FALSE;
+  BootStateReq.BootState.SystemSecurityLevel = 0;
+  BootStateReq.BootState.SystemVersion = 0;
+  SetMem (BootStateReq.BootState.PublicKey, 0,
+           AVB_SHA256_DIGEST_SIZE);
+
+  Status = Handle.QseeComProtocol->QseecomSendCmd (
+      Handle.QseeComProtocol, Handle.AppId, (UINT8 *)&BootStateReq,
+      sizeof (BootStateReq), (UINT8 *)&BootStateRsp, sizeof (BootStateRsp));
+  if (Status != EFI_SUCCESS || BootStateRsp.Status != 0) {
+    DEBUG ((EFI_D_ERROR, "KeyMasterSendRotAndBootState: Set BootState err, "
+                         "Status: %r, response status: %d\n",
+            Status, BootStateRsp.Status));
+    return EFI_LOAD_ERROR;
+  }
+
+
   return Status;
 }
 
