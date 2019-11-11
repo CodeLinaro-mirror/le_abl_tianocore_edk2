@@ -49,4 +49,6 @@ EFI_STATUS
 GetFfbmCommand (CHAR8 *FfbmMode, UINT32 Sz);
 EFI_STATUS
 WriteRecoveryMessage (CHAR8 *Command);
+EFI_STATUS
+ReadFromPartition (EFI_GUID *Ptype, VOID **Msg, UINT32 Size);
 #endif

@@ -31,7 +31,7 @@
 #include <Library/LinuxLoaderLib.h>
 #include <Library/BootLinux.h>
 
-STATIC EFI_STATUS
+EFI_STATUS
 ReadFromPartition (EFI_GUID *Ptype, VOID **Msg, UINT32 Size)
 {
   EFI_STATUS Status;

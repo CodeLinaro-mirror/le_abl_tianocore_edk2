@@ -80,6 +80,7 @@ typedef struct UpdateCmdLineParamList {
   CHAR8 *DtbIdxStr;
   CHAR8 *LEVerityCmdLine;
   CHAR8 *CvmSystemPtnCmdLine;
+  CONST CHAR8 *SystemdSlotEnv;
 } UpdateCmdLineParamList;
 
 EFI_STATUS
