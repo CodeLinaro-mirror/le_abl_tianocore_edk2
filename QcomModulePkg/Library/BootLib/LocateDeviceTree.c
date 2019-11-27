@@ -946,6 +946,14 @@ GetSocDtb (VOID *Kernel, UINT32 KernelSize, UINT32 DtbOffset, VOID *DtbLoadAddr)
       break;
 
     CurDtbInfo.Dtb = Dtb;
+    /*
+     * HACK: set Current (and only dtb in our case) as the Best match explicitly.
+     * Default behaviour is to iterate thru the list of dtbs in dtb.img and pick
+     * the best match based on DTMATCH_PARAMS (qcom,{msm-id/board-id/pmic-id} in
+     * dts). msm-id/board-id/pmic-id are non-upstream dt properties which we do
+     * not support on db845c.
+     */
+    BestDtbInfo.Dtb = Dtb;
     if (ReadDtbFindMatch (&CurDtbInfo, &BestDtbInfo, SOC_MATCH)) {
         DtbIdx = DtbCount;
     }
