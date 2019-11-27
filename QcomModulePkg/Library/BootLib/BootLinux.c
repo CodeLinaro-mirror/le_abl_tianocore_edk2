@@ -480,7 +480,26 @@ DTBImgCheckAndAppendDT (BootInfo *Info, BootParamlist *BootParamlistPtr)
                       SingleDtHdr, fdt_totalsize (SingleDtHdr));
       } else {
         DEBUG ((EFI_D_ERROR, "Error: Device Tree blob not found\n"));
-        return EFI_NOT_FOUND;
+
+        /* Get the Soc specific dtb in case of boot image header v2
+	 * with dtb.img at an offset and missing DTBO partition */
+        SocDtb = GetSocDtb (ImageBuffer,
+             DtbSize,
+             BootParamlistPtr->DtbOffset,
+             (VOID *)BootParamlistPtr->DeviceTreeLoadAddr);
+        if (!SocDtb) {
+          DEBUG ((EFI_D_ERROR,
+                      "Error: Appended Soc Device Tree blob not found\n"));
+          return EFI_NOT_FOUND;
+        }
+
+        Status = ApplyOverlay (BootParamlistPtr,
+                               SocDtb,
+                               DtsList);
+        if (Status != EFI_SUCCESS) {
+          DEBUG ((EFI_D_ERROR, "Error: Dtb overlay failed\n"));
+          return Status;
+        }
       }
     }
   } else {
