@@ -1,0 +1,26 @@
+/**
+ * Copyright (C) 2019 Canonical Ltd
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#ifndef _BOOTLOADER_SNAP_BOOT_H
+#define _BOOTLOADER_SNAP_BOOT_H
+
+#include <Library/PartitionTableUpdate.h>
+#include "snappy_boot_v1.h"
+
+EFI_STATUS snap_get_target_boot_params(Slot *BootableSlot, CHAR8 **cmdline);
+
+#endif
