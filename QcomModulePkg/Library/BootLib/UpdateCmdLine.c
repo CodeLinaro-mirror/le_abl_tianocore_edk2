@@ -400,6 +400,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
+  if (Param->SnapCmdLine != NULL) {
+    Src = Param->SnapCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
   if (Param->BootDevBuf) {
     Src = Param->BootDeviceCmdLine;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
@@ -528,6 +533,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
                BOOLEAN Recovery,
                BOOLEAN AlarmBoot,
                CONST CHAR8 *VBCmdLine,
+               CONST CHAR8 *SnapCmdLine,
                CHAR8 **FinalCmdLine)
 {
   EFI_STATUS Status;
@@ -576,6 +582,12 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
     DEBUG ((EFI_D_VERBOSE, "UpdateCmdLine VBCmdLine present len %d\n",
             AsciiStrLen (VBCmdLine)));
     CmdLineLen += AsciiStrLen (VBCmdLine);
+  }
+
+  if (SnapCmdLine != NULL) {
+    DEBUG ((EFI_D_VERBOSE, "UpdateCmdLine SnapCmdLine present len %d\n",
+            AsciiStrLen (SnapCmdLine)));
+    CmdLineLen += AsciiStrLen (SnapCmdLine);
   }
 
   if (HaveCmdLine) {
@@ -709,6 +721,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.BatteryChgPause = BatteryChgPause;
   Param.UsbSerialCmdLine = UsbSerialCmdLine;
   Param.VBCmdLine = VBCmdLine;
+  Param.SnapCmdLine = SnapCmdLine;
   Param.LogLevel = LogLevel;
   Param.BootDeviceCmdLine = BootDeviceCmdLine;
   Param.AndroidBootMode = AndroidBootMode;
