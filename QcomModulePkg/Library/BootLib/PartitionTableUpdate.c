@@ -1571,6 +1571,8 @@ FindBootableSlot (Slot *BootableSlot)
       (BootEntry->PartEntry.Attributes & PART_ATT_MAX_RETRY_COUNT_VAL) >>
       PART_ATT_MAX_RETRY_CNT_BIT;
 
+  DEBUG ((EFI_D_INFO, "OK: FindBootableSlot [%d] [%d][%d]\n", Unbootable, BootSuccess, RetryCount));
+
   if (Unbootable == 0 && BootSuccess == 1) {
     DEBUG (
         (EFI_D_VERBOSE, "Active Slot %s is bootable\n", BootableSlot->Suffix));
