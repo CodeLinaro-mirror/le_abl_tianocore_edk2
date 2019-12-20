@@ -34,6 +34,8 @@
 #include <Library/VerifiedBootMenu.h>
 #include <Library/LEOEMCertificate.h>
 #include <Library/HypervisorMvCalls.h>
+#include <LinuxLoaderLib.h>
+#include <Library/SnappyBoot.h>
 
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
@@ -1381,7 +1383,8 @@ LoadImageAndAuth (BootInfo *Info)
   } else {
     Slot CurrentSlot = {{0}};
 
-    GUARD (FindBootableSlot (&CurrentSlot));
+    GUARD (snap_get_target_boot_params(&CurrentSlot, &Info->SnapCmdLine));
+    // GUARD (FindBootableSlot (&CurrentSlot));
     if (IsSuffixEmpty (&CurrentSlot)) {
       DEBUG ((EFI_D_ERROR, "No bootable slot\n"));
       return EFI_LOAD_ERROR;
@@ -1417,6 +1420,7 @@ LoadImageAndAuth (BootInfo *Info)
     }
   }
 
+  DEBUG ((EFI_D_INFO, "snap boot  params [%s][%a]\n", Info->Pname, Info->SnapCmdLine));
   AVBVersion = GetAVBVersion ();
   DEBUG ((EFI_D_VERBOSE, "AVB version %d\n", AVBVersion));
 
