@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018,2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,7 +40,7 @@ EFI_USB_DEVICE_DESCRIPTOR
 DeviceDescriptor = {
     sizeof (EFI_USB_DEVICE_DESCRIPTOR), // uint8  bLength;
     USB_DESC_TYPE_DEVICE,               // uint8  bDescriptorType;
-    0x0210,                             // uint16 bcdUSB;
+    0x0200,                             // uint16 bcdUSB;
     0x00,                               // uint8  bDeviceClass;
     0x00,                               // uint8  bDeviceSubClass;
     0x00,                               // uint8  bDeviceProtocol;
