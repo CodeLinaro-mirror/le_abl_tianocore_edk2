@@ -3,7 +3,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,6 +58,8 @@ STATIC CONST CHAR8 *LogLevel = " quite";
 STATIC CONST CHAR8 *BatteryChgPause = " androidboot.mode=charger";
 STATIC CONST CHAR8 *MdtpActiveFlag = " mdtp";
 STATIC CONST CHAR8 *AlarmBootCmdLine = " androidboot.alarmboot=true";
+STATIC CHAR8 SystemdSlotEnv[] = " systemd.setenv=\"SLOT_SUFFIX=_a\"";
+STATIC CONST CHAR8 *SystemdFfbmMode = " systemd.unit=ffbm.target";
 
 /*Send slot suffix in cmdline with which we have booted*/
 STATIC CHAR8 *AndroidSlotSuffix = " androidboot.slot_suffix=";
@@ -315,7 +317,7 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot,
   }
 
   /* Append slot info for A/B Variant */
-  if (MultiSlotBoot) {
+  if (MultiSlotBoot && NAND != CheckRootDeviceType ()) {
      StrnCatS (PartitionName, MAX_GPT_NAME_SIZE, CurSlot.Suffix,
             StrLen (CurSlot.Suffix));
   }
@@ -346,10 +348,17 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot,
       // The gluebi device that is to be passed to "root=" will be the first one
       // after all "regular" mtd devices have been populated.
       UINT32 PartitionCount = 0;
+      UINT32 MtdBlkIndex = 0;
       GetPartitionCount (&PartitionCount);
+      if (MultiSlotBoot &&
+         (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
+          StrLen (CurSlot.Suffix)) == 0))
+         MtdBlkIndex = PartitionCount;
+      else
+         MtdBlkIndex = PartitionCount - 1;
       AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d",
-                   (PartitionCount - 1), (Index - 1));
+                   MtdBlkIndex, (Index - 1));
     } else {
       AsciiSPrint (*SysPath, MAX_PATH_SIZE,
           " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d",
@@ -433,6 +442,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     Src = Param->FfbmStr;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
 
+    if (IsLEVariant ()) {
+       Src = Param->SystemdFfbmMode;
+       AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    }
+
     Src = Param->LogLevel;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   } else if (Param->PauseAtBootUp) {
@@ -465,13 +479,20 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
   if (Param->MultiSlotBoot &&
      !IsBootDevImage ()) {
      /* Slot suffix */
-    Src = Param->AndroidSlotSuffix;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
-
     UnicodeStrToAsciiStr (GetCurrentSlotSuffix ().Suffix,
                           Param->SlotSuffixAscii);
-    Src = Param->SlotSuffixAscii;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    if (IsSystemdBootslotEnabled ()) {
+      INT32 StrLen = 0;
+      StrLen = AsciiStrLen (SystemdSlotEnv);
+      SystemdSlotEnv[StrLen-2] = Param->SlotSuffixAscii[1];
+      Src = Param->SystemdSlotEnv;
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    } else {
+      Src = Param->AndroidSlotSuffix;
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+      Src = Param->SlotSuffixAscii;
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    }
   }
 
   if ((IsBuildAsSystemRootImage () &&
@@ -619,6 +640,11 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   if (FfbmStr && FfbmStr[0] != '\0') {
     CmdLineLen += AsciiStrLen (AndroidBootMode);
     CmdLineLen += AsciiStrLen (FfbmStr);
+
+    if (IsLEVariant ()) {
+       CmdLineLen += AsciiStrLen (SystemdFfbmMode);
+    }
+
     /* reduce kernel console messages to speed-up boot */
     CmdLineLen += AsciiStrLen (LogLevel);
   } else if (BatteryStatus &&
@@ -647,8 +673,12 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
   if (MultiSlotBoot &&
      !IsBootDevImage ()) {
+    if (IsSystemdBootslotEnabled ()) {
+      CmdLineLen += AsciiStrLen (SystemdSlotEnv);
+    } else {
     /* Add additional length for slot suffix */
-    CmdLineLen += AsciiStrLen (AndroidSlotSuffix) + MAX_SLOT_SUFFIX_SZ;
+      CmdLineLen += AsciiStrLen (AndroidSlotSuffix) + MAX_SLOT_SUFFIX_SZ;
+    }
   }
 
   if ((IsBuildAsSystemRootImage () &&
@@ -722,6 +752,8 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.DtbIdxStr = DtbIdxStr;
   Param.LEVerityCmdLine = LEVerityCmdLine;
   Param.CvmSystemPtnCmdLine = CvmSystemPtnCmdLine;
+  Param.SystemdSlotEnv = SystemdSlotEnv;
+  Param.SystemdFfbmMode = SystemdFfbmMode;
 
   Status = UpdateCmdLineParams (&Param, FinalCmdLine);
   if (Status != EFI_SUCCESS) {
