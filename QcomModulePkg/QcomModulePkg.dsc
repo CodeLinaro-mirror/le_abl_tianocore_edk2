@@ -144,6 +144,9 @@
   !if $(RW_ROOTFS)
       GCC:*_*_*_CC_FLAGS = -DRW_ROOTFS
   !endif
+  !if $(BOOT_WITH_FS)
+      GCC:*_*_*_CC_FLAGS = -DBOOT_WITH_FS
+  !endif
 
 [PcdsFixedAtBuild.common]
 

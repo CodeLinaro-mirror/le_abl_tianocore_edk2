@@ -279,6 +279,18 @@ IsRootCmdLineUpdated (BootInfo *Info)
   }
 }
 
+#if BOOT_WITH_FS
+BOOLEAN IsBootWithFs (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN IsBootWithFs (VOID)
+{
+  return FALSE;
+}
+#endif
+
 
 STATIC EFI_STATUS
 LoadImageNoAuth (BootInfo *Info)
@@ -291,10 +303,13 @@ LoadImageNoAuth (BootInfo *Info)
     goto load_dtbo;
   }
 
-  Status = LoadImage (Info->BootIntoRecovery,
-                      Info->Pname,
-                      (VOID **)&(Info->Images[0].ImageBuffer),
-                      (UINT32 *)&(Info->Images[0].ImageSize));
+  if (IsBootWithFs())
+    Status = LoadImageWithFs (Info);
+  else
+    Status = LoadImage (Info->BootIntoRecovery,
+                        Info->Pname,
+                        (VOID **)&(Info->Images[0].ImageBuffer),
+                        (UINT32 *)&(Info->Images[0].ImageSize));
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "ERROR: Failed to load image from partition: %r\n",
             Status));
