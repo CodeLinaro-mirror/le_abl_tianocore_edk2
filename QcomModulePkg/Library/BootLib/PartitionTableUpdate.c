@@ -477,6 +477,10 @@ STATIC EFI_STATUS GetMultiSlotPartsList (VOID)
       if ((PtnLen == Len) &&
           !StrnCmp (PtnEntries[j].PartEntry.PartitionName,
           SearchString, Len - 1) &&
+          (StrStr (PtnEntries[j].PartEntry.PartitionName,
+          (CONST CHAR16 *)L"_a") ||
+          StrStr (PtnEntries[j].PartEntry.PartitionName,
+          (CONST CHAR16 *)L"_b")) &&
           (StrStr (SearchString, (CONST CHAR16 *)L"_a") ||
           StrStr (SearchString, (CONST CHAR16 *)L"_b"))) {
         TempNode = AllocateZeroPool (sizeof (struct BootPartsLinkedList));
@@ -486,6 +490,7 @@ STATIC EFI_STATUS GetMultiSlotPartsList (VOID)
                     SearchString, Len - 2);
           TempNode->Next = HeadNode;
           HeadNode = TempNode;
+          break;
         } else {
           DEBUG ((EFI_D_ERROR,
                   "Unable to Allocate Memory for MultiSlot Partition list\n"));
