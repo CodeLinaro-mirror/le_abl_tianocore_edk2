@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -66,6 +66,8 @@ typedef enum {
 #define MIBIB_MAGIC1 0xFE569FAC
 #define MIBIB_MAGIC2 0xCD7F127A
 
+#define DIVIDE_UNIT (1024 * 1024 * 100)
+
 /* GPT Signature should be 0x5452415020494645 */
 #define GPT_SIGNATURE_1 0x54524150
 #define GPT_SIGNATURE_2 0x20494645
@@ -111,6 +113,7 @@ table in the respective position mentioned below.
 #define PART_ATT_UNBOOTABLE_VAL ((UINT64)0x1 << PART_ATT_UNBOOTABLE_BIT)
 #define MAX_PRIORITY 3
 #define MAX_RETRY_COUNT 7
+#define MAX_RESTORE_RETRY_COUNT 3
 #define MAX_NUM_PARTITIONS 128
 #define MIN_PARTITION_ARRAY_SIZE 0x4000
 #define ATTRIBUTE_FLAG_OFFSET 48
@@ -223,4 +226,5 @@ EFI_STATUS HandleActiveSlotUnbootable (VOID);
 EFI_STATUS ClearUnbootable (VOID);
 BOOLEAN IsABRetryCountUpdateRequired (VOID);
 UINT32 PartitionVerifyMibibImage (UINT8 *Image);
+VOID RestoreGoldenImage ();
 #endif

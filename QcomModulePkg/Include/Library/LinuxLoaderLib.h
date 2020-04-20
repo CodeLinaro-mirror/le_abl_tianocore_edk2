@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -140,6 +140,14 @@ typedef struct {
 /* Load image from partition to buffer */
 EFI_STATUS
 LoadImageFromPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname);
+
+EFI_STATUS
+LoadImageFromPartitionWithOffset (VOID *ImageBuffer, IN UINT64 Offset,
+  UINT32 ImageSize, CHAR16 *Pname);
+
+EFI_STATUS
+WriteImageToPartitionWithOffset (VOID *ImageBuffer, IN UINT64 Offset,
+  UINT32 ImageSize, CHAR16 *Pname);
 
 EFI_STATUS
 ReadWriteDeviceInfo (vb_device_state_op_t Mode, void *DevInfo, UINT32 Sz);

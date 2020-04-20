@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -39,6 +39,7 @@
 #include <Protocol/EFIVerifiedBoot.h>
 #include <Uefi.h>
 
+STATIC BOOLEAN IsShowWarnMenu = FALSE;
 STATIC OPTION_MENU_INFO gMenuInfo;
 
 STATIC MENU_MSG_INFO mFastbootOptionTitle[] = {
@@ -145,6 +146,17 @@ STATIC MENU_MSG_INFO mFastbootCommonMsgInfo[] = {
      0,
      NOACTION},
     {{"DEVICE STATE - "},
+     COMMON_FACTOR,
+     BGR_RED,
+     BGR_BLACK,
+     COMMON,
+     0,
+     NOACTION},
+};
+
+
+STATIC MENU_MSG_INFO mFastbootWarningMsgInfo[] = {
+    {{"Restore golden image 3 times failed "},
      COMMON_FACTOR,
      BGR_RED,
      BGR_BLACK,
@@ -322,6 +334,15 @@ VOID DisplayFastbootMenu (VOID)
   OPTION_MENU_INFO *OptionMenuInfo;
   OptionMenuInfo = &gMenuInfo;
 
+  /* When Slot a & Slot b are unbootable,  the warning will be shown on the
+   * screen, it's high priority than other fastboot menu.
+   */
+  if (IsShowWarnMenu) {
+    DEBUG ((EFI_D_INFO, "Fastboot menu is not showed due to warning"
+            " Screen!\n"));
+    return;
+  }
+
   if (FixedPcdGetBool (EnableDisplayMenu)) {
     DrawMenuInit ();
     OptionMenuInfo->LastMenuType = OptionMenuInfo->Info.MenuType;
@@ -338,4 +359,24 @@ VOID DisplayFastbootMenu (VOID)
   } else {
     DEBUG ((EFI_D_INFO, "Display menu is not enabled!\n"));
   }
+}
+
+VOID FastbootWarningShowScreen () {
+  EFI_STATUS Status;
+  UINT32 Location = 0;
+  UINT32 Height = 0;
+
+  if (FixedPcdGetBool (EnableDisplayMenu)) {
+    DrawMenuInit ();
+    mFastbootWarningMsgInfo[0].Location = Location;
+    Status = DrawMenu (&mFastbootWarningMsgInfo[0], &Height);
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Unable to show fastboot warning on screen: %r\n",
+              Status));
+    }
+    IsShowWarnMenu = TRUE;
+  } else {
+    DEBUG ((EFI_D_INFO, "Display menu is not enabled!\n"));
+  }
+  return ;
 }

@@ -18,7 +18,7 @@ found at
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2015 - 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015 - 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -338,7 +338,6 @@ VOID PartitionDump (VOID)
   }
 }
 
-STATIC
 EFI_STATUS
 PartitionGetInfo (IN CHAR16 *PartitionName,
                   OUT EFI_BLOCK_IO_PROTOCOL **BlockIo,
@@ -1253,7 +1252,7 @@ HandleMetaImgFlash (IN CHAR16 *PartitionName,
 }
 
 /* Erase partition */
-STATIC EFI_STATUS
+EFI_STATUS
 FastbootErasePartition (IN CHAR16 *PartitionName)
 {
   EFI_STATUS Status;
@@ -2910,6 +2909,10 @@ CmdOemDevinfo (CONST CHAR8 *arg, VOID *data, UINT32 sz)
   WaitForTransferComplete ();
   AsciiSPrint (DeviceInfo, sizeof (DeviceInfo), "Charger screen enabled: %a",
                IsChargingScreenEnable () ? "true" : "false");
+  FastbootInfo (DeviceInfo);
+  WaitForTransferComplete ();
+  AsciiSPrint (DeviceInfo, sizeof (DeviceInfo), "Restore retry count : %d",
+               GetRestoreRetryCount ());
   FastbootInfo (DeviceInfo);
   WaitForTransferComplete ();
   FastbootOkay ("");

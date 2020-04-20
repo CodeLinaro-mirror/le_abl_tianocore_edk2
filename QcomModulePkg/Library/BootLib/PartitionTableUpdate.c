@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,8 +28,10 @@
  */
 #include "PartitionTableUpdate.h"
 #include "AutoGen.h"
+#include <FastbootLib/FastbootCmds.h>
 #include <Library/Board.h>
 #include <Library/BootLinux.h>
+#include <Library/FastbootMenu.h>
 #include <Library/LinuxLoaderLib.h>
 #include <Library/UefiLib.h>
 #include <Library/DebugLib.h>
@@ -1783,4 +1785,208 @@ LoadAndValidateDtboImg (BootInfo *Info,
   }
 
   return TRUE;
+}
+
+/* Function to restore golden image to A/B slot.
+ * If current active slot is A, copy to B, vice versa.
+ */
+VOID RestoreGoldenImage ()
+{
+  EFI_STATUS Status;
+  struct BootPartsLinkedList *TempNode = NULL;
+  EFI_BLOCK_IO_PROTOCOL *BlockIo = NULL;
+  EFI_HANDLE *Handle = NULL;
+  UINT64 PartitionSize = 0;
+  CHAR16 PartitionName[BOOT_PART_SIZE];
+  CHAR16 DesPartitionName[BOOT_PART_SIZE];
+  VOID *ImageBuffer = NULL;
+  UINT32 ImageBufferPages = 0;
+  UINT64 DivMsgBufSize;
+  INT64 LeftSize = 0;
+  UINT64 WriteSize = 0;
+  UINT64 Offset =  0;
+  Slot CurrentSlot = GetCurrentSlotSuffix ();
+  Slot DesSlot = {{0}};
+  struct PartitionEntry *BootPartition = NULL;
+  BOOLEAN MultiSlotBoot = PartitionHasMultiSlot (L"boot");
+
+  if (!MultiSlotBoot) {
+    DEBUG ((EFI_D_ERROR, "Multi slot boot check fail.\n"));
+    return;
+  }
+
+  if (IsSuffixEmpty (&CurrentSlot) != TRUE &&
+    !StrnCmp (GetCurrentSlotSuffix ().Suffix, L"_a",StrLen (L"_a"))) {
+    StrnCpy (DesSlot.Suffix, L"_b", StrLen (L"_b") + 1);
+  } else {
+    StrnCpy (DesSlot.Suffix, L"_a", StrLen (L"_a") + 1);
+  }
+
+  BootPartition = GetBootPartitionEntry (&DesSlot);
+
+  if (!BootPartition) {
+    DEBUG ((EFI_D_ERROR, "Could not get BootPartitionEntry.\n"));
+    return;
+  }
+
+  if (!(BootPartition->PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL)) {
+    //set other slot active and try to boot again.
+    DEBUG ((EFI_D_INFO, "Set slot %s active and reboot again\n",
+            DesSlot.Suffix));
+
+    Status = SetActiveSlot (&DesSlot, TRUE);
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "set_active failed :%r\n", Status));
+      return;
+    }
+
+    UpdatePartitionAttributes (PARTITION_ALL);
+
+    RebootDevice (NORMAL_MODE);
+    return;
+  }
+
+  if (GetRestoreRetryCount () == 0) {
+    //Show warning on UI that restore retry count is 0.
+    DEBUG ((EFI_D_INFO, "Restore retry count is 0.\n"));
+    FastbootWarningShowScreen ();
+    return;
+  }
+
+  DEBUG ((EFI_D_INFO, "Both slots unbootable, restore golden image to slot:%s\n", DesSlot.Suffix));
+  // retry count -1 in every try.
+  SetRestoreRetryCount (GetRestoreRetryCount () - 1);
+
+  if (!HeadNode) {
+    Status = GetMultiSlotPartsList ();
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Unable to get GetMultiSlotPartsList.\n"));
+      goto Err;
+    }
+  }
+
+  for (TempNode = HeadNode; TempNode; TempNode = TempNode->Next) {
+    memset (PartitionName, 0, sizeof (PartitionName));
+    memset (DesPartitionName, 0, sizeof (DesPartitionName));
+    //Restore source PartitionName
+    StrnCpyS (PartitionName, BOOT_PART_SIZE, TempNode->PartName,
+            StrLen (TempNode->PartName));
+    StrnCatS (PartitionName, BOOT_PART_SIZE, L"_g", StrLen (L"_g"));
+
+    //Restore destination source PartitionName
+    StrnCpyS (DesPartitionName, BOOT_PART_SIZE, TempNode->PartName,
+            StrLen (TempNode->PartName));
+    StrnCatS (DesPartitionName, BOOT_PART_SIZE, DesSlot.Suffix,
+            StrLen (DesSlot.Suffix));
+
+    // Check if partiton exists on _g
+    Status = PartitionGetInfo (PartitionName, &BlockIo, &Handle);
+    if (Status == EFI_NOT_FOUND) {
+        DEBUG ((EFI_D_INFO, "Partition %s not found, skip.\n",
+                PartitionName));
+        continue;
+    }
+
+    if (!BlockIo ||
+      !Handle) {
+      DEBUG ((EFI_D_ERROR, "no partiton found to restore.\n"));
+      goto Err;
+    }
+
+    DEBUG ((EFI_D_VERBOSE, "Restore partition from %s to %s\n", PartitionName,
+            DesPartitionName));
+
+    //reset ofset
+    Offset = 0;
+
+    /* Split partition size to smal size as AllocatePages maybe failed if the
+       partitionsize is too large*/
+    PartitionSize =
+        (BlockIo->Media->LastBlock + 1) * BlockIo->Media->BlockSize;
+
+    DEBUG ((EFI_D_VERBOSE, "PartitionSize: 0x%llx BlockSize: 0x%llx\n",
+            PartitionSize, BlockIo->Media->BlockSize));
+
+    WriteSize = ROUND_TO_PAGE (DIVIDE_UNIT, BlockIo->Media->BlockSize - 1);
+    ImageBufferPages = ALIGN_PAGES (WriteSize, ALIGNMENT_MASK_4KB);
+    DivMsgBufSize = (PartitionSize / WriteSize) * WriteSize;
+    ImageBuffer = AllocatePages (ImageBufferPages);
+
+    if (!ImageBuffer) {
+      DEBUG ((EFI_D_ERROR, "No resources available for ImageBuffer\n"));
+      goto Err;
+    }
+
+    if (DivMsgBufSize) {
+      LeftSize = DivMsgBufSize;
+      while (LeftSize > 0) {
+        Status = LoadImageFromPartitionWithOffset (ImageBuffer, Offset, WriteSize,
+                PartitionName);
+        if (Status != EFI_SUCCESS) {
+          DEBUG ((EFI_D_ERROR, "LoadImageFromPartitionWithOffset error :%r\n", Status));
+          goto Err;
+        }
+
+        Status = WriteImageToPartitionWithOffset (ImageBuffer, Offset, WriteSize,
+                DesPartitionName);
+        if (Status != EFI_SUCCESS) {
+          DEBUG ((EFI_D_ERROR, "Write the divisible Image failed :%r\n",
+                  Status));
+          goto Err;
+        }
+
+        Offset += WriteSize / BlockIo->Media->BlockSize;
+        LeftSize -= WriteSize;
+      }
+    }
+
+    if (PartitionSize - DivMsgBufSize > 0) {
+      Status = LoadImageFromPartitionWithOffset (ImageBuffer, Offset,
+              PartitionSize - DivMsgBufSize, PartitionName);
+      if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "LoadImageFromPartitionWithOffset error :%r\n",
+                Status));
+        goto Err;
+      }
+
+      Status = WriteImageToPartitionWithOffset (ImageBuffer, Offset,
+              PartitionSize - DivMsgBufSize, DesPartitionName);
+      if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "Write the divisible Image failed :%r\n",
+            Status));
+        goto Err;
+      }
+    }
+
+    FreePages(ImageBuffer, ImageBufferPages);
+    ImageBuffer = NULL;
+
+    DEBUG ((EFI_D_VERBOSE, "Restore end\n"));
+  }
+
+  Status = FastbootErasePartition (L"userdata");
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Couldn't erase image:  %r\n", Status));
+    goto Err;
+  }
+
+  Status = SetActiveSlot (&DesSlot, TRUE);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "set_active failed :%r\n", Status));
+    return;
+  }
+
+  UpdatePartitionAttributes (PARTITION_ALL);
+
+  SetRestoreRetryCount (MAX_RESTORE_RETRY_COUNT);
+
+Err:
+  if (ImageBuffer) {
+    FreePages(ImageBuffer, ImageBufferPages);
+    ImageBuffer = NULL;
+  }
+
+  RebootDevice (NORMAL_MODE);
+
+  return;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -57,6 +57,11 @@ BOOLEAN IsChargingScreenEnable (VOID)
   return DevInfo.is_charger_screen_enabled;
 }
 
+UINT32 GetRestoreRetryCount (VOID)
+{
+  return DevInfo.restore_retry_count;
+}
+
 VOID
 GetDevInfo (DeviceInfo **DevInfoPtr)
 {
@@ -85,6 +90,23 @@ EnableChargingScreen (BOOLEAN IsEnabled)
     if (Status != EFI_SUCCESS) {
       DEBUG ((EFI_D_ERROR, "Error %a charger screen: %r\n",
               (IsEnabled ? "Enabling" : "Disabling"), Status));
+      return Status;
+    }
+  }
+
+  return Status;
+}
+
+EFI_STATUS
+SetRestoreRetryCount (UINT32 Count)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+
+  if (GetRestoreRetryCount () != Count) {
+    DevInfo.restore_retry_count = Count;
+    Status = ReadWriteDeviceInfo (WRITE_CONFIG, &DevInfo, sizeof (DevInfo));
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Unable set restore retry count: %r\n", Status));
       return Status;
     }
   }
@@ -254,6 +276,7 @@ EFI_STATUS DeviceInfoInit (VOID)
     }
     DevInfo.is_charger_screen_enabled = FALSE;
     DevInfo.verity_mode = TRUE;
+    DevInfo.restore_retry_count = MAX_RESTORE_RETRY_COUNT;
     Status =
         ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo, sizeof (DevInfo));
     if (Status != EFI_SUCCESS) {

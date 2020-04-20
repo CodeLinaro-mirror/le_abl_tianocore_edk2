@@ -2,7 +2,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -174,4 +174,10 @@ UpdateDevInfo (CHAR16 *Pname, CHAR8 *ImgVersion);
 VOID
 GetDevInfo (DeviceInfo **DevinfoPtr);
 BOOLEAN IsUsbTimerStarted (VOID);
+EFI_STATUS
+PartitionGetInfo (IN CHAR16 *PartitionName,
+                  OUT EFI_BLOCK_IO_PROTOCOL **BlockIo,
+                  OUT EFI_HANDLE **Handle);
+EFI_STATUS
+FastbootErasePartition (IN CHAR16 *PartitionName);
 #endif

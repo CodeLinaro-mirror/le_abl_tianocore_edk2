@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -268,12 +268,11 @@ ToLower (CHAR8 *Str)
   }
 }
 
-/* Load image from partition to buffer */
-EFI_STATUS
-LoadImageFromPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname)
+/* Get partition block info */
+STATIC EFI_STATUS
+GetPartitionBlkIo (CHAR16 *Pname, EFI_BLOCK_IO_PROTOCOL **BlkIo)
 {
   EFI_STATUS Status;
-  EFI_BLOCK_IO_PROTOCOL *BlkIo;
   PartiSelectFilter HandleFilter;
   HandleInfo HandleInfoList[1];
   STATIC UINT32 MaxHandles;
@@ -287,8 +286,6 @@ LoadImageFromPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname)
   HandleFilter.RootDeviceType = NULL;
   HandleFilter.PartitionLabel = Pname;
   HandleFilter.VolumeName = NULL;
-
-  DEBUG ((DEBUG_INFO, "Loading Image Start : %u ms\n", GetTimerCountms ()));
 
   MaxHandles = sizeof (HandleInfoList) / sizeof (*HandleInfoList);
 
@@ -311,15 +308,77 @@ LoadImageFromPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname)
     return Status;
   }
 
-  BlkIo = HandleInfoList[0].BlkIo;
+  *BlkIo = HandleInfoList[0].BlkIo;
+  if (!*BlkIo) {
+    DEBUG ((EFI_D_ERROR, "BlockIo for %s is corrupted\n", Pname));
+    return EFI_VOLUME_CORRUPTED;
+  }
 
-  Status = BlkIo->ReadBlocks (
-      BlkIo, BlkIo->Media->MediaId, 0,
-      ROUND_TO_PAGE (*ImageSize, BlkIo->Media->BlockSize - 1), ImageBuffer);
+  return Status;
+}
+
+/* Load image from partition to buffer */
+EFI_STATUS
+LoadImageFromPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname)
+{
+  EFI_STATUS Status;
+
+  DEBUG ((DEBUG_INFO, "Loading Image Start : %u ms\n", GetTimerCountms ()));
+
+  Status = LoadImageFromPartitionWithOffset (ImageBuffer, 0, *ImageSize, Pname);
 
   if (Status == EFI_SUCCESS) {
     DEBUG ((DEBUG_INFO, "Loading Image Done : %lu ms\n", GetTimerCountms ()));
     DEBUG ((DEBUG_INFO, "Total Image Read size : %d Bytes\n", *ImageSize));
+  }
+
+  return Status;
+}
+
+/* Load image from partition to buffer */
+EFI_STATUS
+LoadImageFromPartitionWithOffset (VOID *ImageBuffer, IN UINT64 Offset,
+  UINT32 ImageSize, CHAR16 *Pname)
+{
+  EFI_STATUS Status;
+  EFI_BLOCK_IO_PROTOCOL *BlkIo = NULL;
+
+  Status = GetPartitionBlkIo (Pname, &BlkIo);
+  if (Status != EFI_SUCCESS ||
+      !BlkIo) {
+    return Status;
+  }
+
+  Status = BlkIo->ReadBlocks (
+      BlkIo, BlkIo->Media->MediaId, Offset,
+      ROUND_TO_PAGE (ImageSize, BlkIo->Media->BlockSize - 1), ImageBuffer);
+
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "ReadBlocks failed %r\n", Status));
+  }
+
+  return Status;
+}
+
+/* Write image from buffer to partition */
+EFI_STATUS
+WriteImageToPartitionWithOffset (VOID *ImageBuffer, IN UINT64 Offset,
+  UINT32 ImageSize, CHAR16 *Pname)
+{
+  EFI_STATUS Status;
+  EFI_BLOCK_IO_PROTOCOL *BlkIo = NULL;
+
+  Status = GetPartitionBlkIo (Pname, &BlkIo);
+  if (Status != EFI_SUCCESS ||
+      !BlkIo) {
+    return Status;
+  }
+
+  Status = BlkIo->WriteBlocks (
+      BlkIo, BlkIo->Media->MediaId, Offset, ImageSize, ImageBuffer);
+
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "WriteBlocks failed %r\n", Status));
   }
 
   return Status;

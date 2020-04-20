@@ -1,5 +1,5 @@
 /*
- * * Copyright (c) 2011,2014-2015,2017 The Linux Foundation. All rights
+ * * Copyright (c) 2011, 2014-2015, 2017, 2020, The Linux Foundation. All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,6 +54,7 @@ typedef struct device_info {
   UINT32 user_public_key_length;
   CHAR8 user_public_key[MAX_USER_KEY_SIZE];
   UINT64 rollback_index[MAX_VB_PARTITIONS];
+  UINT32 restore_retry_count;
 } DeviceInfo;
 
 struct verified_boot_verity_mode {
@@ -70,12 +71,15 @@ BOOLEAN IsUnlocked (VOID);
 BOOLEAN IsUnlockCritical (VOID);
 BOOLEAN IsEnforcing (VOID);
 BOOLEAN IsChargingScreenEnable (VOID);
+UINT32 GetRestoreRetryCount (VOID);
 VOID
 GetBootloaderVersion (CHAR8 *BootloaderVersion, UINT32 Len);
 VOID
 GetRadioVersion (CHAR8 *RadioVersion, UINT32 Len);
 EFI_STATUS
 EnableChargingScreen (BOOLEAN IsEnabled);
+EFI_STATUS
+SetRestoreRetryCount (UINT32 Count);
 EFI_STATUS
 EnableEnforcingMode (BOOLEAN IsEnabled);
 EFI_STATUS
