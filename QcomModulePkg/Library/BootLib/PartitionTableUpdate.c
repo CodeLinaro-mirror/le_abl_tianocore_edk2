@@ -51,6 +51,8 @@ STATIC struct PartitionEntry PtnEntriesBak[MAX_NUM_PARTITIONS];
 STATIC struct BootPartsLinkedList *HeadNode;
 STATIC EFI_STATUS
 GetActiveSlot (Slot *ActiveSlot);
+STATIC EFI_STATUS
+ValidateSlotGuids (Slot *BootableSlot);
 
 Slot GetCurrentSlotSuffix (VOID)
 {
@@ -1222,6 +1224,8 @@ GetActiveSlot (Slot *ActiveSlot)
   EFI_STATUS Status = EFI_SUCCESS;
   Slot Slots[] = {{L"_a"}, {L"_b"}};
   UINT64 Priority = 0;
+  UINT64 BootPriority = 0;
+  struct PartitionEntry *BootPartition = NULL;
 
   if (ActiveSlot == NULL) {
     DEBUG ((EFI_D_ERROR, "GetActiveSlot: bad parameter\n"));
@@ -1229,9 +1233,7 @@ GetActiveSlot (Slot *ActiveSlot)
   }
 
   for (UINTN SlotIndex = 0; SlotIndex < ARRAY_SIZE (Slots); SlotIndex++) {
-    struct PartitionEntry *BootPartition =
-        GetBootPartitionEntry (&Slots[SlotIndex]);
-    UINT64 BootPriority = 0;
+    BootPartition = GetBootPartitionEntry (&Slots[SlotIndex]);
     if (BootPartition == NULL) {
       DEBUG ((EFI_D_ERROR, "GetActiveSlot: No boot partition "
                            "entry for slot %s\n",
@@ -1261,10 +1263,10 @@ GetActiveSlot (Slot *ActiveSlot)
     UINT64 BootPriority = 0;
     UINT64 RetryCount = 0;
     struct PartitionEntry *SlotA = GetBootPartitionEntry (&Slots[0]);
-    if (SlotA == NULL) {
-      DEBUG ((EFI_D_ERROR, "GetActiveSlot: First Boot: No boot partition "
-                           "entry for slot %s\n",
-              Slots[0].Suffix));
+    struct PartitionEntry *SlotB = GetBootPartitionEntry (&Slots[1]);
+    if (SlotA == NULL ||
+        SlotB == NULL) {
+      DEBUG ((EFI_D_ERROR, "GetActiveSlot: No boot partition\n"));
       return EFI_NOT_FOUND;
     }
 
@@ -1290,6 +1292,25 @@ GetActiveSlot (Slot *ActiveSlot)
                        Slots[0].Suffix, StrLen (Slots[0].Suffix)));
       UpdatePartitionAttributes (PARTITION_ATTRIBUTES);
       FirstBoot = TRUE;
+      return EFI_SUCCESS;
+    }
+
+    /* For some corner cases, active bit may be cleared when device is not
+     *  first boot up, so get the current slot by GUID.
+     */
+    if ((SlotA->PartEntry.Attributes & PART_ATT_ACTIVE_VAL) == 0 &&
+        (SlotB->PartEntry.Attributes & PART_ATT_ACTIVE_VAL) == 0) {
+      GUARD (StrnCpyS (ActiveSlot->Suffix, ARRAY_SIZE (ActiveSlot->Suffix),
+             Slots[0].Suffix, StrLen (Slots[0].Suffix)));
+      if (ValidateSlotGuids (&Slots[1]) == EFI_SUCCESS) {
+        GUARD (StrnCpyS (ActiveSlot->Suffix, ARRAY_SIZE (ActiveSlot->Suffix),
+              Slots[1].Suffix, StrLen (Slots[1].Suffix)));
+      }
+      BootPartition = GetBootPartitionEntry (ActiveSlot);
+      BootPartition->PartEntry.Attributes |=
+         (((UINT64)MAX_PRIORITY - 1) << PART_ATT_PRIORITY_BIT);
+      UpdatePartitionAttributes (PARTITION_ATTRIBUTES);
+      MarkPtnActive (ActiveSlot->Suffix);
       return EFI_SUCCESS;
     }
 
