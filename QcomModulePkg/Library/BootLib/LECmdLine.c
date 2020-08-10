@@ -1,6 +1,6 @@
 /** @file LECmdLine.c
  *
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,6 +28,7 @@
  *
  **/
 
+#include <Library/BootLinux.h>
 #include <Library/PartitionTableUpdate.h>
 #include "LECmdLine.h"
 #include <Library/MemoryAllocationLib.h>
@@ -36,7 +37,7 @@
 #define MAX_VERITY_CMD_LINE 512
 #define MAX_VERITY_SECTOR_LEN 12
 #define MAX_VERITY_HASH_LEN 65
-STATIC CONST CHAR8 *VeritySystemPartitionStr = "/dev/mmcblk0p";
+#define LEN_SYSTEM_PATH_MAX 13
 STATIC CONST CHAR8 *VerityName = "verity";
 STATIC CONST CHAR8 *VerityAppliedOn = "system";
 STATIC CONST CHAR8 *VerityEncriptionName = "sha256";
@@ -147,6 +148,10 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
   BOOLEAN MultiSlotBoot = FALSE;
   CHAR16 PartitionName[MAX_GPT_NAME_SIZE];
   INT32 Index = 0;
+  CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
+  CHAR8 LunCharMapping[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+  UINT32 Lun = 0;
+  CHAR8 *VeritySystemPartitionStr = NULL;
 
   /* Get verity command line from SourceCmdLine */
   DMDataStr = AsciiStrStr (SourceCmdLine, "verity=");
@@ -244,6 +249,26 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
       goto ErrLEVerityout;
     }
 
+    Lun = GetPartitionLunFromIndex (Index);
+
+    VeritySystemPartitionStr = AllocateZeroPool (sizeof (CHAR8) * LEN_SYSTEM_PATH_MAX);
+    if (!VeritySystemPartitionStr) {
+      DEBUG ((EFI_D_ERROR, "Failed to allocate memory for VeritySystemPartitionStr\n"));
+      Status = EFI_OUT_OF_RESOURCES;
+      goto ErrLEVerityout;
+    }
+
+    GetRootDeviceType (RootDevStr, BOOT_DEV_NAME_SIZE_MAX);
+    if (!AsciiStrCmp ("EMMC", RootDevStr)) {
+      AsciiSPrint (VeritySystemPartitionStr, MAX_PATH_SIZE, "/dev/mmcblk0p");
+    } else if (!AsciiStrCmp ("UFS", RootDevStr)) {
+      AsciiSPrint (VeritySystemPartitionStr, MAX_PATH_SIZE, "/dev/sd%c", LunCharMapping[Lun]);
+    } else {
+      DEBUG ((EFI_D_ERROR, "Unknown Device type\n"));
+      Status = EFI_OUT_OF_RESOURCES;
+      goto ErrLEVerityout;
+    }
+
     /* Construct complete verity command line */
     if (AsciiStrCmp (FecOff, "0") == 0) {
         AsciiSPrint (
@@ -305,6 +330,10 @@ ErrLEVerityout:
   if (FecOff != NULL) {
     FreePool (FecOff);
     FecOff = NULL;
+  }
+  if (VeritySystemPartitionStr != NULL) {
+    FreePool (VeritySystemPartitionStr);
+    VeritySystemPartitionStr = NULL;
   }
   if (DMTemp != NULL) {
     FreePool (DMTemp);
