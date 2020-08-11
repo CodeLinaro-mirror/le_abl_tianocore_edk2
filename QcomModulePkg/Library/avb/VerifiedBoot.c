@@ -376,6 +376,16 @@ LoadImageNoAuthWrapper (BootInfo *Info)
                                    Info->BootIntoRecovery,
                                    (CHAR16 *)L"system",
                                    (CHAR8 *)"root");
+    // XXX: Linux bootloader system partition doesn't exists
+    // try to lookup for rootfs if that the case.
+    if (SystemPathLen == 0 || SystemPath == NULL) {
+      SystemPathLen = GetSystemPath (&SystemPath,
+                                     FALSE,
+                                     Info->BootIntoRecovery,
+                                     (CHAR16 *)L"rootfs",
+                                     (CHAR8 *)"root");
+
+    }
     if (SystemPathLen == 0 || SystemPath == NULL) {
       DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
       return EFI_LOAD_ERROR;
