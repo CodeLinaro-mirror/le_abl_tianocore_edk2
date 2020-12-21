@@ -832,9 +832,10 @@ HandleSparseImgFlash (IN CHAR16 *PartitionName,
     return EFI_VOLUME_CORRUPTED;
   }
   // Check image will fit on device
-  SparseImgData.PartitionSize =
-                              (SparseImgData.BlockIo->Media->LastBlock + 1)
-                               * SparseImgData.BlockIo->Media->BlockSize;
+  SparseImgData.PartitionSize = GetPartitionSize (SparseImgData.BlockIo);
+  if (!SparseImgData.PartitionSize) {
+    return EFI_BAD_BUFFER_SIZE;
+  }
 
   if (sz < sizeof (sparse_header_t)) {
     DEBUG ((EFI_D_ERROR, "Input image is invalid\n"));
@@ -1029,21 +1030,10 @@ HandleRawImgFlash (IN CHAR16 *PartitionName,
     return EFI_VOLUME_CORRUPTED;
   }
 
-  if (CHECK_ADD64 (BlockIo->Media->LastBlock, 1)) {
-    DEBUG ((EFI_D_ERROR, "Integer overflow while adding LastBlock and 1\n"));
-    return EFI_INVALID_PARAMETER;
-  }
-
-  if ((MAX_UINT64 / (BlockIo->Media->LastBlock + 1)) <
-      (UINT64)BlockIo->Media->BlockSize) {
-    DEBUG ((EFI_D_ERROR,
-            "Integer overflow while multiplying LastBlock and BlockSize\n"));
-    return EFI_BAD_BUFFER_SIZE;
-  }
-
   /* Check image will fit on device */
-  PartitionSize = (BlockIo->Media->LastBlock + 1) * BlockIo->Media->BlockSize;
-  if (PartitionSize < Size) {
+  PartitionSize = GetPartitionSize (BlockIo);
+  if (PartitionSize < Size ||
+      !PartitionSize) {
     DEBUG ((EFI_D_ERROR, "Partition not big enough.\n"));
     DEBUG ((EFI_D_ERROR, "Partition Size:\t%d\nImage Size:\t%d\n",
             PartitionSize, Size));
@@ -1103,10 +1093,9 @@ HandleUbiImgFlash (
   }
 
   /* Check if Image fits into partition */
-  PartitionSize =
-        ((BlockIo->Media->LastBlock + 1) * (UINT64)BlockIo->Media->BlockSize);
-
-  if (Size > PartitionSize) {
+  PartitionSize = GetPartitionSize (BlockIo);
+  if (Size > PartitionSize ||
+    !PartitionSize) {
     DEBUG ((EFI_D_ERROR, "Input Size is invalid\n"));
     return EFI_INVALID_PARAMETER;
   }
@@ -1574,6 +1563,7 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
   CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
   CHAR8 FlashResultStr[MAX_RSP_SIZE] = "";
   UINT64 PartitionSize = 0;
+  UINT32 Ret;
 
   ExchangeFlashAndUsbDataBuf ();
   if (mFlashDataBuffer == NULL) {
@@ -1630,8 +1620,11 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
     LunSet = TRUE;
   }
 
-  if (!StrnCmp (PartitionName, L"partition", StrLen (L"partition"))) {
-    GetRootDeviceType (BootDeviceType, BOOT_DEV_NAME_SIZE_MAX);
+  GetRootDeviceType (BootDeviceType, BOOT_DEV_NAME_SIZE_MAX);
+
+  if ((!StrnCmp (PartitionName, L"partition", StrLen (L"partition"))) ||
+       ((!StrnCmp (PartitionName, L"mibib", StrLen (L"mibib"))) &&
+       (!AsciiStrnCmp (BootDeviceType, "NAND", AsciiStrLen ("NAND"))))) {
     if (!AsciiStrnCmp (BootDeviceType, "UFS", AsciiStrLen ("UFS"))) {
       UfsGetSetBootLun (&UfsBootLun, TRUE); /* True = Get */
       if (UfsBootLun != 0x1) {
@@ -1648,8 +1641,20 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
     PartitionDump ();
     DEBUG ((EFI_D_INFO, "*************** Current partition Table Dump End   "
                         "*******************\n"));
-    Status = UpdatePartitionTable (mFlashDataBuffer, mFlashNumDataBytes, Lun,
-                                   Ptable);
+    if (!AsciiStrnCmp (BootDeviceType, "NAND", AsciiStrLen ("NAND"))) {
+      Ret = PartitionVerifyMibibImage (mFlashDataBuffer);
+      if (Ret) {
+        FastbootFail ("Error Updating partition Table\n");
+        goto out;
+      }
+      Status = HandleRawImgFlash (PartitionName,
+                        ARRAY_SIZE (PartitionName),
+                        mFlashDataBuffer, mFlashNumDataBytes);
+    }
+    else {
+      Status = UpdatePartitionTable (mFlashDataBuffer, mFlashNumDataBytes,
+                        Lun, Ptable);
+    }
     /* Signal the Block IO to update and reenumerate the parition table */
     if (Status == EFI_SUCCESS)  {
       Status = ReenumeratePartTable ();
@@ -1686,8 +1691,11 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
     }
 
     IsFlashComplete = FALSE;
-    PartitionSize = (BlockIo->Media->LastBlock + 1)
-                        * (BlockIo->Media->BlockSize);
+    PartitionSize = GetPartitionSize (BlockIo);
+    if (!PartitionSize) {
+      FastbootFail ("Partition error size");
+      goto out;
+    }
 
     if ((PartitionSize > MaxDownLoadSize) &&
          !IsDisableParallelDownloadFlash ()) {
@@ -2922,7 +2930,7 @@ CmdSetUsbCompositionPid (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
    }
    return;
  } else if ((PidStrLen != (USB_PID_SZ - 1))) {
-    Status = SetDevInfoUsbComposition(Ptr, PidStrLen);
+    Status = SetDevInfoUsbCompositionPid(Ptr, PidStrLen);
     if (Status != EFI_SUCCESS) {
 	    FastbootFail ("Failed to set USB Composition PID");
     } else {
@@ -2935,9 +2943,45 @@ CmdSetUsbCompositionPid (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
     return;
  }
 }
+
+/* Handle USB MAC ID*/
+STATIC VOID
+CmdSetUsbCompositionMacId (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
+{
+  EFI_STATUS Status;
+  CHAR8 *Ptr = NULL;
+  CONST CHAR8 *Delim = " ";
+  UINTN UsbMacIdStrLen = 0;
+
+  if(IsUsbQtiPartitionPresent()) {
+    FastbootFail ("Feature not supported for the target!");
+    return;
+  }
+
+  if (Arg) {
+    UsbMacIdStrLen = AsciiStrLen (Arg);
+    if ((UsbMacIdStrLen != USB_MAC_ID_SZ)) {
+      FastbootFail ("Invalid input entered");
+      return;
+    }
+    Ptr = AsciiStrStr (Arg, Delim);
+    Ptr++;
+  } else {
+    FastbootFail ("Invalid input entered");
+    return;
+  }
+
+  Status = SetDevInfoUsbCompositionMacId(Ptr, UsbMacIdStrLen);
+  if (Status != EFI_SUCCESS) {
+          FastbootFail ("Failed to set USB MAC ID");
+  } else {
+          FastbootOkay ("USB MAC ID is set");
+  }
+  return;
+}
 #endif
 
-#if HIBERNATION_SUPPORT
+#if HIBERNATION_SUPPORT_INSECURE
 STATIC VOID
 CmdGoldenSnapshot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 {
@@ -3004,6 +3048,10 @@ CmdOemDevinfo (CONST CHAR8 *arg, VOID *data, UINT32 sz)
   if(EarlyUsbInitEnabled() && !IsUsbQtiPartitionPresent()) {
     AsciiSPrint (DeviceInfo, sizeof (DeviceInfo), "USB Composition PID: %a",
 		  GetDevInfoUsbPid());
+    FastbootInfo (DeviceInfo);
+    WaitForTransferComplete ();
+    AsciiSPrint (DeviceInfo, sizeof (DeviceInfo), "USB Composition MAC ID: %a",
+		  GetDevInfoUsbMacId());
     FastbootInfo (DeviceInfo);
     WaitForTransferComplete ();
   }
@@ -3249,11 +3297,12 @@ GetPartitionType (IN CHAR16 *PartName, OUT CHAR8 * PartType)
 }
 
 STATIC EFI_STATUS
-GetPartitionSize (IN CHAR16 *PartName, OUT CHAR8 * PartSize)
+GetPartitionSizeViaName (IN CHAR16 *PartName, OUT CHAR8 * PartSize)
 {
   EFI_BLOCK_IO_PROTOCOL *BlockIo = NULL;
   EFI_HANDLE *Handle = NULL;
   EFI_STATUS Status = EFI_INVALID_PARAMETER;
+  UINT64 PartitionSize;
 
   Status = PartitionGetInfo (PartName, &BlockIo, &Handle);
   if (Status != EFI_SUCCESS) {
@@ -3265,9 +3314,12 @@ GetPartitionSize (IN CHAR16 *PartName, OUT CHAR8 * PartSize)
     return EFI_VOLUME_CORRUPTED;
   }
 
-  AsciiSPrint (PartSize, MAX_RSP_SIZE, " 0x%llx",
-               (UINT64) (BlockIo->Media->LastBlock + 1) *
-                   BlockIo->Media->BlockSize);
+  PartitionSize = GetPartitionSize (BlockIo);
+  if (!PartitionSize) {
+    return EFI_BAD_BUFFER_SIZE;
+  }
+
+  AsciiSPrint (PartSize, MAX_RSP_SIZE, " 0x%llx", PartitionSize);
   return EFI_SUCCESS;
 
 }
@@ -3311,7 +3363,7 @@ PublishGetVarPartitionInfo (
                             AsciiStrLen (
                               PublishedPartInfo[PtnLoopCount].part_name));
     if (!EFI_ERROR (Status)) {
-      Status = GetPartitionSize (
+      Status = GetPartitionSizeViaName (
                             PartitionNameUniCode,
                             PublishedPartInfo[PtnLoopCount].size_response);
       if (Status == EFI_SUCCESS) {
@@ -3457,8 +3509,9 @@ FastbootCommandSetup (IN VOID *Base, IN UINT64 Size)
       {"oem device-info", CmdOemDevinfo},
 #ifdef TARGET_SUPPORTS_EARLY_USB_INIT
       {"oem usb-pid", CmdSetUsbCompositionPid},
+      {"oem usb-mac-id", CmdSetUsbCompositionMacId},
 #endif
-#if HIBERNATION_SUPPORT
+#if HIBERNATION_SUPPORT_INSECURE
       {"oem golden-snapshot", CmdGoldenSnapshot},
 #endif
       {"continue", CmdContinue},

@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,24 +26,15 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __EARLY_ETHERNET__
-#define __EARLY_ETHERNET__
+#ifndef __INTEGRITY_IMA__
+#define __INTEGRITY_IMA__
 
-#define MAX_IP_ADDR_BUF      64
-#define EARLY_ETH_PNAME      L"emac"
-#define EARLY_ADDR_TERMINATOR   '#'
-#define IP_ADDR_STR_OFFSET   0
-#define MAC_ADDR_LEN   17
-
-/**
- *  Reads partition and try to extract IP addresses
- *  and MAC address if found.
- *
- * @return EFI_STATUS
- */
-EFI_STATUS
-GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf);
+/* Maximum IMA command line parameter length */
+#define IMA_CMDLINE_LEN 48
 
 BOOLEAN
-EarlyEthEnabled ();
+IsIntegrityIMAEnabled (VOID);
+
+VOID
+GetIntegrityIMACmdline (CHAR8 *IntegrityIMACmdlinePtr);
 #endif
