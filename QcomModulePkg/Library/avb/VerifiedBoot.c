@@ -34,6 +34,7 @@
 #include <Library/VerifiedBootMenu.h>
 #include <Library/LEOEMCertificate.h>
 #include <Library/HypervisorMvCalls.h>
+#include <Library/SnappyBoot.h>
 
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
@@ -134,28 +135,32 @@ NoAVBLoadReqImage (BootInfo *Info, VOID **DtboImage,
         UINT32 *DtboSize, CHAR16 *Pname, CHAR16 *RequestedPartition)
 {
   EFI_STATUS Status = EFI_SUCCESS;
-  Slot CurrentSlot;
   CHAR8 *AsciiPname = NULL;
   UINT64 PartSize = 0;
   AvbIOResult AvbStatus;
   AvbOpsUserData *UserData = NULL;
   AvbOps *Ops = NULL;
+  CHAR16 BootSuffix[MAX_GPT_NAME_SIZE];
 
+  // store suffix from Pname
+  GUARD ( StrnCpyS (BootSuffix,
+              (UINTN)MAX_GPT_NAME_SIZE,
+              Pname,
+              StrLen(Pname)));
   GUARD ( StrnCpyS (Pname,
               (UINTN)MAX_GPT_NAME_SIZE,
               (CONST CHAR16 *)RequestedPartition,
               StrLen (RequestedPartition)));
 
   if (Info->MultiSlotBoot) {
-      CurrentSlot = GetCurrentSlotSuffix ();
+      // use stored suffix from boot partition
       GUARD ( StrnCatS (Pname, MAX_GPT_NAME_SIZE,
-                  CurrentSlot.Suffix, StrLen (CurrentSlot.Suffix)));
+                  BootSuffix, StrLen (BootSuffix)));
   }
   if (GetPartitionIndex (Pname) == INVALID_PTN) {
     Status = EFI_NO_MEDIA;
     goto out;
   }
-
   /* Get Partition size & compare with MAX supported size
    * If Partition size > DTBO_MAX_SIZE_ALLOWED return
    * Allocate Partition size memory otherwise
@@ -267,6 +272,11 @@ STATIC
 BOOLEAN
 IsRootCmdLineUpdated (BootInfo *Info)
 {
+// Ubuntu Core cmdline does not have specified "root=", and does not support
+// detection of system path, report root is alread updated
+#if UBUNTU_CORE_BOOT
+  return TRUE;
+#else
   CHAR8* ImageCmdLine = NULL;
 
   ImageCmdLine =
@@ -278,6 +288,7 @@ IsRootCmdLineUpdated (BootInfo *Info)
   } else {
     return FALSE;
   }
+#endif
 }
 
 STATIC EFI_STATUS
@@ -1413,6 +1424,9 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume)
 
   /* Get Partition Name*/
   if (!Info->MultiSlotBoot) {
+#if UBUNTU_CORE_BOOT
+    GUARD (SnapGetTargetBootParams(Info->Pname, &Info->SnapCmdLine, IsUnlocked()));
+#else
     if (Info->BootIntoRecovery) {
       DEBUG ((EFI_D_INFO, "Booting Into Recovery Mode\n"));
       StrnCpyS (Info->Pname, ARRAY_SIZE (Info->Pname), L"recovery",
@@ -1422,6 +1436,7 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume)
       StrnCpyS (Info->Pname, ARRAY_SIZE (Info->Pname), L"boot",
                 StrLen (L"boot"));
     }
+#endif
   } else {
     Slot CurrentSlot = {{0}};
 
@@ -1462,6 +1477,7 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume)
     }
   }
 
+  DEBUG ((EFI_D_INFO, "snap boot  params [%s][%a]\n", Info->Pname, Info->SnapCmdLine));
   AVBVersion = GetAVBVersion ();
   DEBUG ((EFI_D_VERBOSE, "AVB version %d\n", AVBVersion));
 
