@@ -430,7 +430,7 @@ LoadImageAndAuthVB1 (BootInfo *Info)
   CHAR8 *SystemPath = NULL;
   UINT32 SystemPathLen = 0;
   CHAR8 *Temp = NULL;
-
+DEBUG ((EFI_D_INFO, "LoadImageAndAuthVB1:[%s][%a]\n", Info->Pname, Info->SnapCmdLine));
   GUARD (VBCommonInit (Info));
   GUARD (VBAllocateCmdLine (Info));
   GUARD (LoadImageNoAuth (Info));
@@ -1328,8 +1328,8 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
 
     if (!SecureDevice) {
         if (!TargetBuildVariantUser () ) {
-            DEBUG ((EFI_D_INFO, "VB: verification skipped for debug builds\n"));
-            goto skip_verification;
+            DEBUG ((EFI_D_INFO, "VB: verification not skipped for debug builds\n"));
+            // goto skip_verification;
         }
     }
 
@@ -1425,7 +1425,9 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume)
   /* Get Partition Name*/
   if (!Info->MultiSlotBoot) {
 #if UBUNTU_CORE_BOOT
+DEBUG ((EFI_D_INFO, "OK: getting snap boot details\n"));
     GUARD (SnapGetTargetBootParams(Info->Pname, &Info->SnapCmdLine, IsUnlocked()));
+DEBUG ((EFI_D_INFO, "OK: got snap boot details\n"));
 #else
     if (Info->BootIntoRecovery) {
       DEBUG ((EFI_D_INFO, "Booting Into Recovery Mode\n"));
@@ -1479,7 +1481,7 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume)
 
   DEBUG ((EFI_D_INFO, "snap boot  params [%s][%a]\n", Info->Pname, Info->SnapCmdLine));
   AVBVersion = GetAVBVersion ();
-  DEBUG ((EFI_D_VERBOSE, "AVB version %d\n", AVBVersion));
+  DEBUG ((EFI_D_INFO, "AVB version %d\n", AVBVersion));
 
   /* Load and Authenticate */
   switch (AVBVersion) {
