@@ -393,7 +393,7 @@ LoadImageNoAuthWrapper (BootInfo *Info)
   GUARD (LoadImageNoAuth (Info));
   GUARD (StartKeyMaster ());
 
-   if (!IsDynamicPartitionSupport () &&
+   if (!Info->BootIntoRecovery &&
         !IsRootCmdLineUpdated (Info)) {
     SystemPathLen = GetSystemPath (&SystemPath,
                                    Info->MultiSlotBoot,
@@ -408,6 +408,8 @@ LoadImageNoAuthWrapper (BootInfo *Info)
     GUARD (AppendVBCmdLine (Info, SystemPath));
   }
 
+  GUARD (AppendVBCmdLine (Info, VerifiedState));
+  GUARD (AppendVBCmdLine (Info, "orange"));
   return Status;
 }
 
@@ -1466,6 +1468,10 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume)
   }
 
   AVBVersion = GetAVBVersion ();
+  //FIXME skip AVB for recovery partition
+  if (IsDynamicPartitionSupport () && Info->BootIntoRecovery) {
+    AVBVersion = NO_AVB;
+  }
   DEBUG ((EFI_D_VERBOSE, "AVB version %d\n", AVBVersion));
 
   /* Load and Authenticate */
