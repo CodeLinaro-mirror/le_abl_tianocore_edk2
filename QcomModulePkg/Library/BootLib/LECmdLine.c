@@ -269,6 +269,7 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
       goto ErrLEVerityout;
     }
 
+#ifndef ENABLE_DM_MOD_FOR_KERNEL5_4
     /* Construct complete verity command line */
     if (AsciiStrCmp (FecOff, "0") == 0) {
         AsciiSPrint (
@@ -293,6 +294,34 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
         VeritySystemPartitionStr, Index, FecRoot, FecBlock, FecOff, FecStart, FecOff
         );
     }
+#endif
+
+#ifdef ENABLE_DM_MOD_FOR_KERNEL5_4
+    if (AsciiStrCmp (FecOff, "0") == 0) {
+         AsciiSPrint (
+         DMTemp,
+         MAX_VERITY_CMD_LINE,
+         " %a dm-mod.create=\"%a,,,ro,0 %a %a 1 %a%d %a%d %a %a %a %d %a %a %a\"",
+         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
+         VeritySystemPartitionStr, Index, VeritySystemPartitionStr, Index,
+         VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
+         Hash, VeritySalt
+         );
+     }
+     else {
+         AsciiSPrint (
+         DMTemp,
+         MAX_VERITY_CMD_LINE,
+         " %a dm-mod.create=\"%a,,,ro,0 %a %a 1 %a%d %a%d %a %a %a %d %a %a %a %d %a %a %a %a%d %a 2 %a %a %a %a\"",
+         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
+         VeritySystemPartitionStr, Index, VeritySystemPartitionStr, Index,
+         VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
+         Hash, VeritySalt, FEATUREARGS, OptionalParam0, OptionalParam1, UseFec,
+         VeritySystemPartitionStr, Index, FecRoot, FecBlock, FecOff, FecStart, FecOff
+         );
+     }
+#endif
+
 
     Length = AsciiStrLen (DMTemp) + 1; /* 1 extra byte for NULL */
 
