@@ -202,6 +202,7 @@ INT32 BootPartitionLoad(VOID* Arg) {
 	ThreadBootLoad->Status = Status;
         KernIntf->Sem->SemPost (SemMainThread,FALSE);
 	KernIntf->Thread->ThreadExit (0);
+	return Status;
    }
   Thread* CurrentThread = KernIntf->Thread->GetCurrentThread();
 
@@ -214,6 +215,8 @@ INT32 BootPartitionLoad(VOID* Arg) {
         ThreadBootLoad->image_buf,
         SplitImageSize );
   KernIntf->Sem->SemPost(SemLoadFirst, FALSE);
+
+  ThreadBootLoad->Status = Status;
 
   ImageOffset = ImageOffset + SplitImageSize;
   SplitImageSize = SplitImageSize + ThreadBootLoad->RemainImageSize;
@@ -234,9 +237,7 @@ INT32 BootPartitionLoad(VOID* Arg) {
 
 INT32 BootPartitionVerify(VOID* Arg) {
   AvbSlotVerifyResult Status;
-  bool IsFinal;
   uint64_t ImageOffset;
-  uint64_t SplitImageSize;
   AvbSHA256Ctx *Sha256Ctx;
   AvbSHA512Ctx* Sha512Ctx;
 
@@ -250,6 +251,7 @@ INT32 BootPartitionVerify(VOID* Arg) {
     ThreadBootVerify->Status = Status;
     KernIntf->Sem->SemPost (SemMainThread, FALSE);
     KernIntf->Thread->ThreadExit (0);
+    return Status;
   }
   if(ThreadBootVerify->Sha256HashCheck == true)
   {
@@ -263,9 +265,7 @@ INT32 BootPartitionVerify(VOID* Arg) {
   }
 
   Thread* CurrentThread = KernIntf->Thread->GetCurrentThread();
-  IsFinal = ThreadBootVerify->IsFinal;
   ImageOffset = ThreadBootVerify->ImageOffset;
-  SplitImageSize = ThreadBootVerify->SplitImageSize;
 
   KernIntf->Sem->SemWait (SemLoadFirst);
 
@@ -306,6 +306,12 @@ INT32 BootPartitionVerify(VOID* Arg) {
 
   if(ThreadBootVerify->Sha256HashCheck == true)
   {
+
+   if (!Sha256Ctx) {
+	Status = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
+	goto out;
+  }
+
    Status = VerifyPartitionSha256 (Sha256Ctx,
                                   ThreadBootVerify->part_name,
                                   ThreadBootVerify->DescDigest,
@@ -314,8 +320,14 @@ INT32 BootPartitionVerify(VOID* Arg) {
                                   ThreadBootVerify->SplitImageSize,
                                   ThreadBootVerify->IsFinal);
   }
-  else{
-    Status = VerifyPartitionSha512 (Sha512Ctx,
+  else {
+
+   if (!Sha512Ctx) {
+	Status = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
+	goto out;
+   }
+
+   Status = VerifyPartitionSha512 (Sha512Ctx,
                                   ThreadBootVerify->part_name,
                                   ThreadBootVerify->DescDigest,
                                   ThreadBootVerify->DescDigestLen,
@@ -324,13 +336,14 @@ INT32 BootPartitionVerify(VOID* Arg) {
                                   ThreadBootVerify->IsFinal);
   }
 
+out:
   ThreadBootVerify->Status = Status;
   DEBUG ((EFI_D_INFO, "BootPartitionVerify-Second Return: %d\n", Status));
 
   KernIntf->Sem->SemPost(SemMainThread, FALSE);
   ThreadStackNodeRemove (CurrentThread);
   KernIntf->Thread->ThreadExit (0);
-  return 0;
+  return Status;
 }
 
 EFI_STATUS CreateReaderThreads(LoadVerifyInfo *ThreadLoadInfo, LoadVerifyInfo *ThreadVerifyInfo)
@@ -350,7 +363,7 @@ EFI_STATUS CreateReaderThreads(LoadVerifyInfo *ThreadLoadInfo, LoadVerifyInfo *T
   KernIntf->Thread->ThreadSetPinnedCpu(BootLoadThread, corenum);
   AllocateUnSafeStackPtr (BootLoadThread);
   Status = KernIntf->Thread->ThreadResume (BootLoadThread);
-  DEBUG ((EFI_D_INFO, "Thread 1 created with Thread ID: %d\n", ThreadLoadInfo->thread_id));
+  DEBUG ((EFI_D_INFO, "Thread 1 created with Thread ID: %d Status : %d\n", ThreadLoadInfo->thread_id,Status));
 
   corenum = 7;
   BootVerifyThread = KernIntf->Thread->ThreadCreate ("Executethreadwrapper_2",
@@ -440,6 +453,11 @@ AvbSlotVerifyResult LoadAndVerifyBootHashPartition (
   ImageOffset = 0;
   LoadVerifyInfo* ThreadLoadInfo = AllocateZeroPool (sizeof (LoadVerifyInfo));
   LoadVerifyInfo* ThreadVerifyInfo = AllocateZeroPool (sizeof (LoadVerifyInfo));
+
+  if (!ThreadLoadInfo || !ThreadVerifyInfo) {
+    Status = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
+    goto out;
+   }
 
   ThreadLoadInfo->part_name = part_name;
   ThreadLoadInfo->ops = ops;
