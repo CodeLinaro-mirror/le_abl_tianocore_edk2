@@ -60,6 +60,8 @@
 #include "avb_vbmeta_image.h"
 #include "avb_version.h"
 #include "BootStats.h"
+#include "avb_load_verify_parallel.h"
+
 
 /* Maximum allow length (in bytes) of a partition name, including
  * ab_suffix.
