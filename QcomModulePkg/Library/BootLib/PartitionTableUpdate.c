@@ -841,8 +841,9 @@ ParseGptHeader (struct GptHeaderData *GptHeader,
     DEBUG ((EFI_D_ERROR, "Header CRC mismatch CrcVal = %u and CrcOrig = %u\n",
             CrcVal, CrcOrig));
     return FAILURE;
-  } else
+  } else {
     PUT_LONG (&GptBuffer[HEADER_CRC_OFFSET], CrcVal);
+  }
 
   CurrentLba = GET_LLWORD_FROM_BYTE (&GptBuffer[PRIMARY_HEADER_OFFSET]);
   GptHeader->FirstUsableLba =
@@ -1025,7 +1026,15 @@ WriteGpt (INT32 Lun, UINT32 Sz, UINT8 *Gpt)
   }
   BlkSz = BlockIo->Media->BlockSize;
 
-  /* Verity that passed block has valid GPT primary header */
+  /* Verity that passed block has valid GPT primary header
+     * Sz is from mNumDataBytes and it will check at CmdDownload
+     * if it is mNumDataBytes > MaxDownLoadSize it will fail early and
+     * will not cause any oob
+     */
+  if (Sz <= BlkSz * 2) {
+    DEBUG ((EFI_D_ERROR, "Gpt Image size is invalid!\n"));
+    return FAILURE;
+  }
   PrimaryGptHdr = (Gpt + BlkSz);
   Ret = ParseGptHeader (&GptHeader, PrimaryGptHdr, DeviceDensity, BlkSz);
   if (Ret) {
@@ -1041,6 +1050,10 @@ WriteGpt (INT32 Lun, UINT32 Sz, UINT8 *Gpt)
   /* Back up partition is stored in the reverse order with back GPT, followed by
    * part entries, find the offset to back up GPT */
   Offset = (2 * PartEntryArrSz);
+  if (Sz < (Offset + (BlkSz * 3))) {
+    DEBUG ((EFI_D_ERROR, "Gpt Image size is invalid!!\n"));
+    return FAILURE;
+  }
   SecondaryGptHdr = Offset + BlkSz + PrimaryGptHdr;
   ParseSecondaryGpt = TRUE;
 
@@ -1115,7 +1128,7 @@ WriteGpt (INT32 Lun, UINT32 Sz, UINT8 *Gpt)
     return FAILURE;
   }
   FlashingGpt = 0;
-  gBS->SetMem ((VOID *)PrimaryGptHdr, Sz, 0x0);
+  gBS->SetMem ((VOID *)Gpt, Sz, 0x0);
 
   DEBUG ((EFI_D_ERROR, "Updated Partition Table Successfully\n"));
   return SUCCESS;
