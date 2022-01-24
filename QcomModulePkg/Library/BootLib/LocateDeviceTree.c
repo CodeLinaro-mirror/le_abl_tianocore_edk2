@@ -914,6 +914,9 @@ cleanup:
       } else if (BestDtbInfo->DtPlatformSubtype >
                            CurDtbInfo->DtPlatformSubtype) {
         gBS->CopyMem (BestDtbInfo, CurDtbInfo, sizeof (struct DtInfo));
+      } else if (BestDtbInfo->DtPlatformSubtype >
+                           CurDtbInfo->DtPlatformSubtype) {
+        gBS->CopyMem (BestDtbInfo, CurDtbInfo, sizeof (struct DtInfo));
       } else {
         FindBestMatch = FALSE;
       }
