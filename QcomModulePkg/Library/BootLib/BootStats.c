@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017,2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017,2019,2022 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -39,11 +39,17 @@ STATIC UINT32 BootLoadEnd;
 STATIC UINT32 KernelEntry;
 STATIC UINT32 KernelLoadStart;
 STATIC UINT32 KernelLoadDone;
-STATIC UINT32 KernelAuthStart;
-STATIC UINT32 KernelAuthDone;
 STATIC UINT64 SharedImemAddress;
 STATIC UINT64 MpmTimerBase;
 STATIC UINT64 BsImemAddress;
+
+/*
+ * With GKI support, the kernel load time will be sum of
+ * GKI kernel load time + Vendor kernel load time.
+ * To account for this, capture the total number of partition
+ * loading that has to be accounted.
+ */
+STATIC UINT32 KernelLoadTime;
 
 void
 BootStatsSetTimeStamp (BS_ENTRY BootStatId)
@@ -110,38 +116,20 @@ BootStatsSetTimeStamp (BS_ENTRY BootStatId)
     }
 
     if (BootStatId == BS_KERNEL_LOAD_DONE) {
-      BootStatImemAddress =
-          BsImemAddress + (sizeof (UINT32) * BS_KERNEL_LOAD_DONE);
       KernelLoadDone = READL (MpmTimerBase);
       if (KernelLoadDone) {
+        KernelLoadTime = KernelLoadDone - KernelLoadStart;
+      }
+      BootStatImemAddress =
+          BsImemAddress + (sizeof (UINT32) * BS_KERNEL_LOAD_TIME);
+      if (KernelLoadDone) {
+        WRITEL (BootStatImemAddress, KernelLoadTime);
+        BootStatImemAddress = BsImemAddress +
+                              (sizeof (UINT32) * BS_KERNEL_LOAD_DONE);
         WRITEL (BootStatImemAddress, KernelLoadDone);
       }
       DEBUG ((EFI_D_VERBOSE, "BootStats: ID-%d: Kernel Load Done:%u\n",
 	       BootStatId, KernelLoadDone));
-      return;
-    }
-
-    if (BootStatId == BS_BOOTIMAGE_CHECKSUM_START) {
-      BootStatImemAddress =
-          BsImemAddress + (sizeof (UINT32) * BS_BOOTIMAGE_CHECKSUM_START);
-      KernelAuthStart = READL (MpmTimerBase);
-      if (KernelAuthStart) {
-	WRITEL (BootStatImemAddress, KernelAuthStart);
-      }
-      DEBUG ((EFI_D_VERBOSE, "BootStats: ID-%d: Kernel Auth Start:%u\n",
-              BootStatId, KernelAuthStart));
-      return;
-    }
-
-    if (BootStatId == BS_BOOTIMAGE_CHECKSUM_DONE) {
-      BootStatImemAddress =
-          BsImemAddress + (sizeof (UINT32) * (BS_BOOTIMAGE_CHECKSUM_DONE));
-      KernelAuthDone = READL (MpmTimerBase);
-      if (KernelAuthDone) {
-        WRITEL (BootStatImemAddress, KernelAuthDone);
-      }
-      DEBUG ((EFI_D_VERBOSE, "BootStats: ID-%d: Kernel Auth Done:%u\n",
-              BootStatId, KernelAuthDone));
       return;
     }
 
