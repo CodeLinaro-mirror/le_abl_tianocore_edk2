@@ -189,6 +189,12 @@
   !if $(NAND_AB_ATTR_SUPPORT)
       GCC:*_*_*_CC_FLAGS = -DNAND_AB_ATTR_SUPPORT
   !endif
+  !if $(ENABLE_SYSTEMD_BOOTSLOT)
+      GCC:*_*_*_CC_FLAGS = -DENABLE_SYSTEMD_BOOTSLOT
+  !endif
+  !if $(SUPPORT_DISABLE_NON_BOOTDEVICE)
+      GCC:*_*_*_CC_FLAGS = -DSUPPORT_DISABLE_NON_BOOTDEVICE
+  !endif
 
 [PcdsFixedAtBuild.common]
 
