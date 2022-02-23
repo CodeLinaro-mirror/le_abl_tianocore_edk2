@@ -867,7 +867,7 @@ DisableNonBootDeviceNode (VOID *fdt)
     NodeOffset = fdt_node_offset_by_prop_value (fdt, -1, "qcom,msm-bus,name", "sdhc1", sizeof("sdhc1"));
     Status = fdt_setprop_string (fdt, NodeOffset, "status", "disabled");
     if (Status != 0) {
-      DEBUG((EFI_D_ERROR, "Failed to Disable EMMC Device:%r\n", Status));
+      DEBUG ((EFI_D_ERROR, "Failed to Disable EMMC Device:%r\n", Status));
     }
   }
   else if (cardtype == EMMC) {

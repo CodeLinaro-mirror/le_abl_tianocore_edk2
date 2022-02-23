@@ -96,4 +96,5 @@ fdt_check_header_ext (VOID *fdt);
 EFI_STATUS
 DisableNonBootDeviceNode (VOID *fdt);
 #endif
+
 #endif
