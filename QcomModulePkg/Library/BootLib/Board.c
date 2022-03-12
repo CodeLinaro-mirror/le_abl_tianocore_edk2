@@ -32,8 +32,14 @@
 #include <Library/UpdateDeviceTree.h>
 #include <Protocol/EFICardInfo.h>
 #include <Protocol/EFIPlatformInfoTypes.h>
+#include <Library/Reg.h>
 
 #include <LinuxLoaderLib.h>
+
+#define KONA_GPIO113_CFG              (0xF971000)
+#define KONA_GPIO113_INOUT            (0xF971004)
+#define KONA_GPIO113_DIRECTION_OUTPUT (0x200)
+#define KONA_GPIO113_OUTPUT_HIGH      (0x2)
 
 STATIC struct BoardInfo platform_board_info;
 
@@ -474,6 +480,12 @@ EFI_STATUS BoardInit (VOID)
   } else {
     AsciiSPrint ((CHAR8 *)platform_board_info.ChipBaseBand,
                   CHIP_BASE_BAND_LEN, "%a", CHIP_BASE_BAND_MSM);
+  }
+
+  if ((platform_board_info.PlatformInfo.platform == EFI_PLATFORMINFO_TYPE_AEDK)
+    && (platform_board_info.PlatformInfo.subtype == 0x01)) {
+    WRITEL(KONA_GPIO113_CFG, KONA_GPIO113_DIRECTION_OUTPUT);
+    WRITEL(KONA_GPIO113_INOUT, KONA_GPIO113_OUTPUT_HIGH);
   }
 
   DEBUG ((EFI_D_VERBOSE, "Raw Chip Id   : 0x%x\n",
