@@ -274,7 +274,11 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
         AsciiSPrint (
         DMTemp,
         MAX_VERITY_CMD_LINE,
+#ifndef ENABLE_DM_MOD_FOR_KERNEL5_4
         " %a dm=\"%a none ro,0 %a %a 1 %a%d %a%d %a %a %a %d %a %a %a\"",
+#else
+        " %a dm-mod.create=\"%a,,,ro,0 %a %a 1 %a%d %a%d %a %a %a %d %a %a %a\"",
+#endif
         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
         VeritySystemPartitionStr, Index, VeritySystemPartitionStr, Index,
         VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
@@ -285,7 +289,11 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
         AsciiSPrint (
         DMTemp,
         MAX_VERITY_CMD_LINE,
+#ifndef ENABLE_DM_MOD_FOR_KERNEL5_4
         " %a dm=\"%a none ro,0 %a %a 1 %a%d %a%d %a %a %a %d %a %a %a %d %a %a %a %a%d %a 2 %a %a %a %a\"",
+#else
+        " %a dm-mod.create=\"%a,,,ro,0 %a %a 1 %a%d %a%d %a %a %a %d %a %a %a %d %a %a %a %a%d %a 2 %a %a %a %a\"",
+#endif
         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
         VeritySystemPartitionStr, Index, VeritySystemPartitionStr, Index,
         VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
