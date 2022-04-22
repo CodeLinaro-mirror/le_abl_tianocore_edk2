@@ -61,6 +61,8 @@
 #include "avb_util.h"
 #include "avb_vbmeta_image.h"
 #include "avb_version.h"
+#include "avb_load_verify_parallel.h"
+
 
 /* Maximum number of partitions that can be loaded with avb_slot_verify(). */
 #define MAX_NUMBER_OF_LOADED_PARTITIONS 32
@@ -406,6 +408,17 @@ static AvbSlotVerifyResult load_and_verify_hash_partition(
       goto out;
     }
     avb_debugv(part_name, ": Loading entire partition.\n", NULL);
+  }
+
+  if ((avb_strncmp ("boot", part_name, 4) == 0)) {
+    ret = LoadAndVerifyBootHashPartition (ops,
+                                          hash_desc,
+                                          part_name,
+                                          desc_digest,
+                                          desc_salt,
+                                          image_buf,
+                                          hash_desc.image_size);
+    goto out;
   }
 
   ret = load_full_partition(
