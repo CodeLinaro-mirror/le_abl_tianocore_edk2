@@ -204,7 +204,7 @@ static AvbSlotVerifyResult load_and_verify_hash_partition(
                                           desc_digest,
                                           desc_salt,
                                           image_buf,
-                                          hash_desc.image_size);
+                                          image_size);
     goto out;
   }
 #endif
