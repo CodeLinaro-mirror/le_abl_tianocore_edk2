@@ -1,19 +1,30 @@
-/**
- * Copyright (C) 2020 Canonical Ltd
+/* Copyright (c) 2021 Canonical Ltd
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 3 as
- * published by the Free Software Foundation.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ * * Redistributions of source code must retain the above copyright
+ *  notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following
+ * disclaimer in the documentation and/or other materials provided
+ *  with the distribution.
+ *   * Neither the name of Canonical Ltd nor the names of its
+ * contributors may be used to endorse or promote products derived
+ * from this software without specific prior written permission.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #include "snappy_boot_common.h"
 
@@ -22,6 +33,11 @@
 
 #define SNAP_BOOTSELECT_VERSION_V2 0x00010010
 #define SNAP_BOOTSELECT_SIGNATURE_RECOVERY ('S' | ('R' << 8) | ('s' << 16) | ('e' << 24))
+
+// device lock states
+#define DEVICE_STATE_UNKNOW   0  // initial device state at first boot
+#define DEVICE_STATE_UNLOCKED 1  // device unlocked
+#define DEVICE_STATE_LOCKED   2  // device locked
 
 /* snappy bootselect partition format structure for run mode */
 typedef struct SNAP_RUN_BOOT_SELECTION {
@@ -196,6 +212,32 @@ typedef struct SNAP_RECOVERY_BOOT_SELECTION {
        when not defined or empty, default boot.img will be used */
     char bootimg_file_name[SNAP_NAME_MAX_LEN];
 
+    /** try_recovery_system contains the label of a recovery system to be
+     *  tried. This entry is completely transparent to the bootloader and is
+     *  only modified by snapd or snap-bootstrap.
+     */
+    char try_recovery_system[SNAP_NAME_MAX_LEN];
+
+    /** recovery_system_status contains the status of a tried recovery
+     *  systems, which is one of "", "try", "tried". This entry is completely
+     *  transparent to the bootloader and is only modified by snapd or
+     *  snap-bootstrap
+     */
+    char recovery_system_status[SNAP_NAME_MAX_LEN];
+
+    /** device_lock_state contains the lock state of the device. It is used by the
+     * bootloader to track device lock changes. When lock state changes, device goes
+     * automatically to install mode. This entry is completely transparent
+     * to the snapd and is only modified by bootloader.
+     * Only last char in the aray is used (device_lock_state[0])
+     * Permitted values:
+     *  0: DEVICE_STATE_UNKNOW:   initial value at first boot.
+     *          This is changed by the bootloader to reflect actual device state.
+     *  1: DEVICE_STATE_UNLOCKED: unlocked device
+     *  2: DEVICE_STATE_LOCKED:   locked device
+     */
+    char device_lock_state[SNAP_NAME_MAX_LEN];
+
     /* unused placeholders for additional parameters to be used  in the future */
     char unused_key_01[SNAP_NAME_MAX_LEN];
     char unused_key_02[SNAP_NAME_MAX_LEN];
@@ -214,9 +256,6 @@ typedef struct SNAP_RECOVERY_BOOT_SELECTION {
     char unused_key_15[SNAP_NAME_MAX_LEN];
     char unused_key_16[SNAP_NAME_MAX_LEN];
     char unused_key_17[SNAP_NAME_MAX_LEN];
-    char unused_key_18[SNAP_NAME_MAX_LEN];
-    char unused_key_19[SNAP_NAME_MAX_LEN];
-    char unused_key_20[SNAP_NAME_MAX_LEN];
 
     /* unused array of 10 key - value pairs */
     char key_value_pairs[10][2][SNAP_NAME_MAX_LEN];
