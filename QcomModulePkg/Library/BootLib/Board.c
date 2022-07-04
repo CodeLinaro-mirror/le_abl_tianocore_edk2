@@ -41,6 +41,16 @@
 #define KONA_GPIO113_DIRECTION_OUTPUT (0x200)
 #define KONA_GPIO113_OUTPUT_HIGH      (0x2)
 
+#define KONA_GPIO52_CFG               (0xF534000)
+#define KONA_GPIO52_IN_OUT            (0xF534004)
+#define KONA_GPIO92_CFG               (0xF95C000)
+#define KONA_GPIO92_IN_OUT            (0xF95C004)
+#define KONA_GPIO155_CFG              (0xF19B000)
+#define KONA_GPIO155_IN_OUT           (0xF19B004)
+#define KONA_PULLDOWN_8MA_OUTPUT      (0x2C1)
+#define KONA_PULLDOWN155_8MA_OUTPUT   (0x12C1)
+#define KONA_OUTPUT_LOW               (0x0)
+
 STATIC struct BoardInfo platform_board_info;
 
 STATIC CONST CHAR8 *DeviceType[] = {
@@ -482,10 +492,20 @@ EFI_STATUS BoardInit (VOID)
                   CHIP_BASE_BAND_LEN, "%a", CHIP_BASE_BAND_MSM);
   }
 
-  if ((platform_board_info.PlatformInfo.platform == EFI_PLATFORMINFO_TYPE_AEDK)
-    && (platform_board_info.PlatformInfo.subtype == 0x01)) {
-    WRITEL(KONA_GPIO113_CFG, KONA_GPIO113_DIRECTION_OUTPUT);
-    WRITEL(KONA_GPIO113_INOUT, KONA_GPIO113_OUTPUT_HIGH);
+  if (platform_board_info.PlatformInfo.platform == EFI_PLATFORMINFO_TYPE_AEDK) {
+    if (platform_board_info.PlatformInfo.subtype == 0x01) {
+      WRITEL(KONA_GPIO113_CFG, KONA_GPIO113_DIRECTION_OUTPUT);
+      WRITEL(KONA_GPIO113_INOUT, KONA_GPIO113_OUTPUT_HIGH);
+      WRITEL(KONA_GPIO52_CFG, KONA_PULLDOWN_8MA_OUTPUT);
+      WRITEL(KONA_GPIO52_IN_OUT, KONA_OUTPUT_LOW);
+      WRITEL(KONA_GPIO92_CFG, KONA_PULLDOWN_8MA_OUTPUT);
+      WRITEL(KONA_GPIO92_IN_OUT, KONA_OUTPUT_LOW);
+      WRITEL(KONA_GPIO155_CFG, KONA_PULLDOWN155_8MA_OUTPUT);
+      WRITEL(KONA_GPIO155_IN_OUT, KONA_OUTPUT_LOW);
+    } else if (platform_board_info.PlatformInfo.subtype == 0x00) {
+      WRITEL(KONA_GPIO155_CFG, KONA_PULLDOWN155_8MA_OUTPUT);
+      WRITEL(KONA_GPIO155_IN_OUT, KONA_OUTPUT_LOW);
+    }
   }
 
   DEBUG ((EFI_D_VERBOSE, "Raw Chip Id   : 0x%x\n",
