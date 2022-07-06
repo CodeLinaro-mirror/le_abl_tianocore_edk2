@@ -1,19 +1,30 @@
-/**
- * Copyright (C) 2019 Canonical Ltd
+/* Copyright (c) 2021 Canonical Ltd
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 3 as
-  * published by the Free Software Foundation.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ * * Redistributions of source code must retain the above copyright
+ *  notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following
+ * disclaimer in the documentation and/or other materials provided
+ *  with the distribution.
+ *   * Neither the name of Canonical Ltd nor the names of its
+ * contributors may be used to endorse or promote products derived
+ * from this software without specific prior written permission.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #include <Uefi.h>
 #include <Library/BaseLib.h>
@@ -54,8 +65,9 @@ static EFI_STATUS LoadRecoveryEnvironment(
 static EFI_STATUS SaveRunEnvironment(
               SNAP_RUN_BOOT_SELECTION_t *BootSelect
             );
-// static EFI_STATUS SaveRecoveryEnvironment(
-//               SNAP_RECOVERY_BOOT_SELECTION_t *RecoverySelect);
+static EFI_STATUS SaveRecoveryEnvironment(
+              SNAP_RECOVERY_BOOT_SELECTION_t *RecoverySelect
+            );
 static EFI_STATUS LoadRunEnvironmentFromPart(
               const CHAR8 *partName,
               SNAP_RUN_BOOT_SELECTION_t **BootSelect
@@ -86,6 +98,7 @@ EFI_STATUS SnapGetTargetBootParams(CHAR16 *BootPart,
     CHAR8 *dangerous;
     SNAP_RUN_BOOT_SELECTION_t *BootSelect = NULL;
     SNAP_RECOVERY_BOOT_SELECTION_t *RecoverySelect = NULL;
+    int device_state = (unlocked ? DEVICE_STATE_UNLOCKED : DEVICE_STATE_LOCKED);
 
     Status = LoadRecoveryEnvironment(&RecoverySelect);
     if (Status != EFI_SUCCESS || RecoverySelect == NULL){
@@ -99,6 +112,26 @@ EFI_STATUS SnapGetTargetBootParams(CHAR16 *BootPart,
         dangerous = "";
     }
 
+    // check device state
+    if (RecoverySelect->device_lock_state[0] == DEVICE_STATE_UNKNOW) {
+        RecoverySelect->device_lock_state[0] = device_state;
+        if (EFI_SUCCESS == SaveRecoveryEnvironment(RecoverySelect)) {
+          DEBUG ((EFI_D_WARN,"Failed to update snap recovery environment\n"));
+        }
+    } else if (RecoverySelect->device_lock_state[0] != device_state) {
+        DEBUG ((EFI_D_WARN,
+          "snap: device state has changed [%s -> %s], forcing device install mode!\n",
+          RecoverySelect->device_lock_state[0] == DEVICE_STATE_UNLOCKED ? "unlocked" : "locked",
+          device_state == DEVICE_STATE_UNLOCKED ? "unlocked" : "locked" ));
+        AsciiStrCpyS(RecoverySelect->snapd_recovery_mode,
+                     SNAP_NAME_MAX_LEN,
+                     SNAP_RECOVERY_MODE_INSTALL
+                   );
+        RecoverySelect->device_lock_state[0] = device_state;
+        if (EFI_SUCCESS == SaveRecoveryEnvironment(RecoverySelect)) {
+          DEBUG ((EFI_D_WARN,"Failed to update snap recovery environment\n"));
+        }
+    }
     // recovery mode can be unset, in which case "install" should be assumed
     if (AsciiStrLen(RecoverySelect->snapd_recovery_mode)) {
         recovery_mode = RecoverySelect->snapd_recovery_mode;
@@ -111,7 +144,7 @@ EFI_STATUS SnapGetTargetBootParams(CHAR16 *BootPart,
                            recovery_mode ));
         AsciiSPrint(cmdline_buf,
                     sizeof(cmdline_buf),
-                    " snapd_recovery_mode=%a snapd_recovery_system=%a%a",
+                    " snapd_recovery_mode=%a snapd_recovery_system=%a%a snapd_lk_boot_disk=sde",
                     recovery_mode,
                     RecoverySelect->snapd_recovery_system,
                     dangerous
@@ -131,7 +164,7 @@ EFI_STATUS SnapGetTargetBootParams(CHAR16 *BootPart,
 
     AsciiSPrint(cmdline_buf,
                 sizeof(cmdline_buf),
-                " snapd_recovery_mode=%a%a",
+                " snapd_recovery_mode=%a%a snapd_lk_boot_disk=sde",
                 recovery_mode,
                 dangerous
               );
@@ -282,24 +315,27 @@ static EFI_STATUS SaveRunEnvironment(SNAP_RUN_BOOT_SELECTION_t *BootSelect)
 }
 
 // // save recovery environment always to main and backup env
-// static EFI_STATUS SaveRecoveryEnvironment(
-//                                SNAP_RECOVERY_BOOT_SELECTION_t *RecoverySelect)
-// {
-//     // first calculate crc32 for the passed boot selection
-//     RecoverySelect->crc32 = crc32( 0,
-//                       (unsigned char *)RecoverySelect,
-//                       sizeof(SNAP_RECOVERY_BOOT_SELECTION_t) - sizeof(uint32_t));
-//
-//     // if at least one write works, return success, use two variables, that compiler
-//     // does not optimise
-//     int r = SaveEnvImageToPartition( (VOID *)RecoverySelect,
-//                                   sizeof(SNAP_RECOVERY_BOOT_SELECTION_t),
-//                                   SNAP_RECOVERYSELECT_PARTITION);
-//     int rb = SaveEnvImageToPartition( (VOID *)RecoverySelect,
-//                                   sizeof(SNAP_RECOVERY_BOOT_SELECTION_t),
-//                                   SNAP_RECOVERYSELECT_PARTITION "bak");
-//     return r & rb;
-// }
+static EFI_STATUS SaveRecoveryEnvironment(
+                               SNAP_RECOVERY_BOOT_SELECTION_t *RecoverySelect)
+{
+    // first calculate crc32 for the passed boot selection
+    RecoverySelect->crc32 = crc32( 0,
+                      (unsigned char *)RecoverySelect,
+                      sizeof(SNAP_RECOVERY_BOOT_SELECTION_t) - sizeof(uint32_t)
+                    );
+
+    // if at least one write works, return success, use two variables, that compiler
+    // does not optimise
+    EFI_STATUS r = SaveEnvImageToPartition( (VOID *)RecoverySelect,
+                                  sizeof(SNAP_RECOVERY_BOOT_SELECTION_t),
+                                  SNAP_RECOVERYSELECT_PARTITION
+                                );
+    EFI_STATUS rb = SaveEnvImageToPartition( (VOID *)RecoverySelect,
+                                  sizeof(SNAP_RECOVERY_BOOT_SELECTION_t),
+                                  SNAP_RECOVERYSELECT_PARTITION "bak"
+                                );
+    return r == EFI_SUCCESS ? rb : r;
+}
 
 static EFI_STATUS LoadRunEnvironmentFromPart(const CHAR8 *partName,
                                         SNAP_RUN_BOOT_SELECTION_t **BootSelect
