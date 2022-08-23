@@ -1264,7 +1264,6 @@ skip_FfbmStr:
   PreparePlatformHardware ();
 
   BootStatsSetTimeStamp (BS_BL_END);
-  BootStatsSetTimeStamp (BS_KERNEL_ENTRY);
 
   if (IsVmEnabled ()) {
     /* Call into Hypervisor if MLVM needs to loaded */
