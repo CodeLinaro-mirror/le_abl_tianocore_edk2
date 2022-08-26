@@ -422,7 +422,7 @@ DTBImgCheckAndAppendDT (BootInfo *Info, BootParamlist *BootParamlistPtr)
   VOID *OverrideDtb = NULL;
   VOID *Dtb;
   BOOLEAN DtboCheckNeeded = FALSE;
-  BOOLEAN DtboImgInvalid = FALSE;
+  BOOLEAN DtboImgIsValid = FALSE;
   struct fdt_entry_node *DtsList = NULL;
   EFI_STATUS Status;
   UINT32 HeaderVersion = 0;
@@ -494,8 +494,8 @@ DTBImgCheckAndAppendDT (BootInfo *Info, BootParamlist *BootParamlistPtr)
           ImageBuffer = BootParamlistPtr->VendorImageBuffer;
         }
   }
-  DtboImgInvalid = LoadAndValidateDtboImg (Info, BootParamlistPtr);
-  if (!DtboImgInvalid) {
+  DtboImgIsValid = LoadAndValidateDtboImg (Info, BootParamlistPtr);
+  if (!DtboImgIsValid) {
     // appended device tree
     Dtb = DeviceTreeAppended (ImageBuffer,
                              ImageSize,
