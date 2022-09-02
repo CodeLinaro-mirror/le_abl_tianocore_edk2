@@ -328,6 +328,8 @@ KeyMasterSetRotAndBootState (KMRotAndBootState *BootState)
   return Status;
 }
 
+static int startedKeyMaster = 0;
+
 EFI_STATUS
 StartKeyMaster (void)
 {
@@ -335,6 +337,12 @@ StartKeyMaster (void)
   KMSetRotRsp RotRsp = {0};
   KMSetBootStateReq BootStateReq = {0};
   KMSetBootStateRsp BootStateRsp = {0};
+
+  if (startedKeyMaster) {
+         return EFI_SUCCESS;
+  } else {
+         startedKeyMaster = 1;
+  }
 
   /*bring up keymaster*/
   EFI_STATUS Status = EFI_SUCCESS;
