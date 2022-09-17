@@ -506,7 +506,7 @@ DTBImgCheckAndAppendDT (BootInfo *Info, BootParamlist *BootParamlistPtr)
         DEBUG ((EFI_D_ERROR, "Dtb offset goes beyond the image size\n"));
         return EFI_BAD_BUFFER_SIZE;
       }
-      SingleDtHdr = (BootParamlistPtr->ImageBuffer +
+      SingleDtHdr = (VOID*)((uintptr_t)ImageBuffer +
                      BootParamlistPtr->DtbOffset);
 
       if (!fdt_check_header (SingleDtHdr)) {
