@@ -1491,10 +1491,11 @@ EFI_STATUS HandleActiveSlotUnbootable (VOID)
     return EFI_NOT_FOUND;
   }
 
-  Unbootable = (BootEntry->PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL) >>
-               PART_ATT_UNBOOTABLE_BIT;
-  BootSuccess = (BootEntry->PartEntry.Attributes & PART_ATT_SUCCESSFUL_VAL) >>
-                PART_ATT_SUCCESS_BIT;
+  //Unbootable = (BootEntry->PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL) >>
+  //             PART_ATT_UNBOOTABLE_BIT;
+  //BootSuccess = (BootEntry->PartEntry.Attributes & PART_ATT_SUCCESSFUL_VAL) >>
+  //              PART_ATT_SUCCESS_BIT;
+  BootSuccess = 1;
 
   if (Unbootable == 0 && BootSuccess == 1) {
     DEBUG (
@@ -1624,10 +1625,11 @@ FindBootableSlot (Slot *BootableSlot)
     return EFI_NOT_FOUND;
   }
 
-  Unbootable = (BootEntry->PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL) >>
-               PART_ATT_UNBOOTABLE_BIT;
-  BootSuccess = (BootEntry->PartEntry.Attributes & PART_ATT_SUCCESSFUL_VAL) >>
-                PART_ATT_SUCCESS_BIT;
+//  Unbootable = (BootEntry->PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL) >>
+//               PART_ATT_UNBOOTABLE_BIT;
+//  BootSuccess = (BootEntry->PartEntry.Attributes & PART_ATT_SUCCESSFUL_VAL) >>
+//                PART_ATT_SUCCESS_BIT;
+  BootSuccess = 1;
   RetryCount =
       (BootEntry->PartEntry.Attributes & PART_ATT_MAX_RETRY_COUNT_VAL) >>
       PART_ATT_MAX_RETRY_CNT_BIT;
