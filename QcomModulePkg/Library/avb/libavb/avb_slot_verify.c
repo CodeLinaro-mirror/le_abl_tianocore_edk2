@@ -50,6 +50,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "avb_slot_verify.h"
 #include "avb_chain_partition_descriptor.h"
 #include "avb_footer.h"
@@ -791,43 +798,44 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
       } break;
 
       case AVB_DESCRIPTOR_TAG_CHAIN_PARTITION: {
-        AvbSlotVerifyResult sub_ret;
-        AvbChainPartitionDescriptor chain_desc;
-        const uint8_t* chain_partition_name;
-        const uint8_t* chain_public_key;
+        if (Avb_StrnCmp(partition_name, "vbmeta", avb_strlen("vbmeta")) != 0){
+          AvbSlotVerifyResult sub_ret;
+          AvbChainPartitionDescriptor chain_desc;
+          const uint8_t* chain_partition_name;
+          const uint8_t* chain_public_key;
 
-        /* Only allow CHAIN_PARTITION descriptors in the main vbmeta image. */
-        if (!is_main_vbmeta) {
-          avb_errorv(full_partition_name,
+          /* Only allow CHAIN_PARTITION descriptors in the main vbmeta image. */
+          if (!is_main_vbmeta) {
+            avb_errorv(full_partition_name,
                      ": Encountered chain descriptor not in main image.\n",
                      NULL);
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-          goto out;
-        }
+            ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+            goto out;
+          }
 
-        if (!avb_chain_partition_descriptor_validate_and_byteswap(
+          if (!avb_chain_partition_descriptor_validate_and_byteswap(
                 (AvbChainPartitionDescriptor*)descriptors[n], &chain_desc)) {
-          avb_errorv(full_partition_name,
+            avb_errorv(full_partition_name,
                      ": Chain partition descriptor is invalid.\n",
                      NULL);
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-          goto out;
-        }
+            ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+            goto out;
+          }
 
-        if (chain_desc.rollback_index_location == 0) {
-          avb_errorv(full_partition_name,
+          if (chain_desc.rollback_index_location == 0) {
+            avb_errorv(full_partition_name,
                      ": Chain partition has invalid "
                      "rollback_index_location field.\n",
                      NULL);
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-          goto out;
-        }
+            ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+            goto out;
+          }
 
-        chain_partition_name = ((const uint8_t*)descriptors[n]) +
+          chain_partition_name = ((const uint8_t*)descriptors[n]) +
                                sizeof(AvbChainPartitionDescriptor);
-        chain_public_key = chain_partition_name + chain_desc.partition_name_len;
+          chain_public_key = chain_partition_name + chain_desc.partition_name_len;
 
-        sub_ret = load_and_verify_vbmeta(ops,
+          sub_ret = load_and_verify_vbmeta(ops,
                                          requested_partitions,
                                          ab_suffix,
                                          allow_verification_error,
@@ -839,10 +847,11 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
                                          chain_desc.public_key_len,
                                          slot_data,
                                          NULL /* out_algorithm_type */);
-        if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
-          ret = sub_ret;
-          if (!result_should_continue(ret)) {
-            goto out;
+          if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
+            ret = sub_ret;
+            if (!result_should_continue(ret)) {
+              goto out;
+            }
           }
         }
       } break;
