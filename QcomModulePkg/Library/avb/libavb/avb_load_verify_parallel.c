@@ -25,6 +25,43 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+/*
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted (subject to the limitations in the
+ *  disclaimer below) provided that the following conditions are met:
+ *
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
+ *
+ *      * Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials provided
+ *        with the distribution.
+ *
+ *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *        contributors may be used to endorse or promote products derived
+ *        from this software without specific prior written permission.
+ *
+ *  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ *  GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ *  HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ *  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ *  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ *  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ *  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "avb_slot_verify.h"
@@ -199,10 +236,11 @@ INT32 BootPartitionLoad(VOID* Arg) {
       (NULL ==  ThreadBootLoad->image_buf) ||
       (NULL == ThreadBootLoad->part_name) ||
       (NULL == ThreadBootLoad->HashCtx)) {
-	Status = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
-	ThreadBootLoad->Status = Status;
-        KernIntf->Sem->SemPost (SemMainThread,FALSE);
-	KernIntf->Thread->ThreadExit (0);
+    Status = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
+    ThreadBootLoad->Status = Status;
+    KernIntf->Sem->SemPost (SemMainThread,FALSE);
+    KernIntf->Thread->ThreadExit (0);
+    return 0;
    }
   Thread* CurrentThread = KernIntf->Thread->GetCurrentThread();
 
@@ -252,6 +290,7 @@ INT32 BootPartitionVerify(VOID* Arg) {
     ThreadBootVerify->Status = Status;
     KernIntf->Sem->SemPost (SemMainThread, FALSE);
     KernIntf->Thread->ThreadExit (0);
+    return 0;
   }
   if(ThreadBootVerify->Sha256HashCheck == true)
   {
@@ -443,18 +482,29 @@ AvbSlotVerifyResult LoadAndVerifyBootHashPartition (
   LoadVerifyInfo* ThreadLoadInfo = AllocateZeroPool (sizeof (LoadVerifyInfo));
   LoadVerifyInfo* ThreadVerifyInfo = AllocateZeroPool (sizeof (LoadVerifyInfo));
 
-  ThreadLoadInfo->part_name = part_name;
-  ThreadLoadInfo->ops = ops;
-  ThreadLoadInfo->image_buf = image_buf;
-  ThreadLoadInfo->DescDigest = DescDigest;
-  ThreadLoadInfo->DescDigestLen = HashDesc.digest_len;
-  /*Initialize thread args before multithreading*/
-  ThreadLoadInfo->thread_id = ImagePartLoop;
-  ThreadLoadInfo->ImageOffset = ImageOffset;
-  ThreadLoadInfo->SplitImageSize = SplitImageSize;
-  ThreadLoadInfo->IsFinal = false;
-  ThreadLoadInfo->RemainImageSize = RemainImageSize;
+if ((NULL ==  ThreadLoadInfo->ops) ||
+      (NULL == ThreadLoadInfo->DescDigest) ||
+      (NULL ==  ThreadLoadInfo->image_buf) ||
+      (NULL == ThreadLoadInfo->part_name) ||
+      (NULL == ThreadLoadInfo->HashCtx)) {
+    Status = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
+    ThreadLoadInfo->Status = Status;
+    KernIntf->Sem->SemPost (SemMainThread, FALSE);
+    KernIntf->Thread->ThreadExit (0);
+    return 0;
+  }
 
+    ThreadLoadInfo->part_name = part_name;
+    ThreadLoadInfo->ops = ops;
+    ThreadLoadInfo->image_buf = image_buf;
+    ThreadLoadInfo->DescDigest = DescDigest;
+    ThreadLoadInfo->DescDigestLen = HashDesc.digest_len;
+    /*Initialize thread args before multithreading*/
+    ThreadLoadInfo->thread_id = ImagePartLoop;
+    ThreadLoadInfo->ImageOffset = ImageOffset;
+    ThreadLoadInfo->SplitImageSize = SplitImageSize;
+    ThreadLoadInfo->IsFinal = false;
+    ThreadLoadInfo->RemainImageSize = RemainImageSize;
 
   if(Sha256Hash == true) {
      ThreadLoadInfo->HashCtx = &Sha256Ctx;
@@ -463,17 +513,30 @@ AvbSlotVerifyResult LoadAndVerifyBootHashPartition (
   }
   ThreadLoadInfo->Sha256HashCheck = Sha256Hash;
 
-  ThreadVerifyInfo->part_name = part_name;
-  ThreadVerifyInfo->ops = ops;
-  ThreadVerifyInfo->image_buf = image_buf;
-  ThreadVerifyInfo->DescDigest = DescDigest;
-  ThreadVerifyInfo->DescDigestLen = HashDesc.digest_len;
-  /*Initialize thread args before multithreading*/
-  ThreadVerifyInfo->thread_id = 1;
-  ThreadVerifyInfo->ImageOffset = ImageOffset;
-  ThreadVerifyInfo->SplitImageSize = SplitImageSize;
-  ThreadVerifyInfo->IsFinal = false;
-  ThreadVerifyInfo->RemainImageSize = RemainImageSize;
+  if ((NULL ==  ThreadVerifyInfo->ops) ||
+      (NULL == ThreadVerifyInfo->DescDigest) ||
+      (NULL ==  ThreadVerifyInfo->image_buf) ||
+      (NULL == ThreadVerifyInfo->part_name) ||
+      (NULL == ThreadVerifyInfo->HashCtx)) {
+    Status = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
+    ThreadVerifyInfo->Status = Status;
+    KernIntf->Sem->SemPost (SemMainThread, FALSE);
+    KernIntf->Thread->ThreadExit (0);
+    return 0;
+  }
+
+    ThreadVerifyInfo->part_name = part_name;
+    ThreadVerifyInfo->ops = ops;
+    ThreadVerifyInfo->image_buf = image_buf;
+    ThreadVerifyInfo->DescDigest = DescDigest;
+    ThreadVerifyInfo->DescDigestLen = HashDesc.digest_len;
+    /*Initialize thread args before multithreading*/
+    ThreadVerifyInfo->thread_id = 1;
+    ThreadVerifyInfo->ImageOffset = ImageOffset;
+    ThreadVerifyInfo->SplitImageSize = SplitImageSize;
+    ThreadVerifyInfo->IsFinal = false;
+    ThreadVerifyInfo->RemainImageSize = RemainImageSize;
+
   if(Sha256Hash == true) {
      ThreadVerifyInfo->HashCtx = &Sha256Ctx;
   } else {
