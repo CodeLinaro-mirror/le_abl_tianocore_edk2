@@ -480,7 +480,7 @@ LoadBootImageNoAuth (BootInfo *Info, UINT32 *PageSize, BOOLEAN *FastbootPath)
   BOOLEAN BootIntoRecovery = FALSE;
   VOID *RecoveryImageHdrBuffer = NULL;
   UINT32 RecoveryImageHdrSize = 0;
-  BOOLEAN BootImageLoaded;
+  BOOLEAN BootImageLoaded = FALSE;
   /* In case of flashless LE devices images are already loaded and verified
    * by previous bootloaders, so just fill the BootInfo structure with
    * required parameters
