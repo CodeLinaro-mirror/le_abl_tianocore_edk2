@@ -310,12 +310,14 @@ static struct PartialGoods PartialGoodsMmType[] = {
     {BIT (EFICHIPINFO_PART_MODEM),
      "/soc",
      {"qcom,mss", "status", "ok", "no"}},
-    {BIT (EFICHIPINFO_PART_MODEM),
+    {(BIT (EFICHIPINFO_PART_MODEM)
+     | BIT (EFICHIPINFO_PART_WLAN)
+     | BIT (EFICHIPINFO_PART_NAV)),
      "/soc",
      {"remoteproc-mss", "status", "ok", "no"}},
     {BIT (EFICHIPINFO_PART_WLAN),
      "/soc",
-     {"qcom,mss", "status", "ok", "no"}},
+     {"qcom,wpss", "status", "ok", "no"}},
     {BIT (EFICHIPINFO_PART_WLAN),
      "/soc",
      {"remoteproc-wpss", "status", "ok", "no"}},
@@ -352,9 +354,6 @@ static struct PartialGoods PartialGoodsMmType[] = {
     {BIT (EFICHIPINFO_PART_NPU),
      "/soc",
      {"qcom,npu", "status", "ok", "no"}},
-    {BIT (EFICHIPINFO_PART_NAV),
-     "/soc",
-     {"qcom,mss", "status", "ok", "no"}},
 };
 
 STATIC EFI_STATUS
@@ -401,6 +400,8 @@ FindNodeAndUpdateProperty (VOID *fdt,
   INT32 ParentOffset = 0;
   INT32 Ret = 0;
   UINT32 i;
+  CONST struct fdt_property *Prop = NULL;
+  INT32 PropLen = 0;
 
   for (i = 0; i < TableSz; i++, Table++) {
     if (!(Value & Table->Val))
@@ -422,6 +423,22 @@ FindNodeAndUpdateProperty (VOID *fdt,
       DEBUG ((EFI_D_INFO, "Subnode: %a is not present, ignore\n",
               SNode->SubNodeName));
       continue;
+    }
+
+    if (Table->Val == (BIT (EFICHIPINFO_PART_MODEM) |
+                       BIT (EFICHIPINFO_PART_WLAN) |
+                       BIT (EFICHIPINFO_PART_NAV))) {
+      Prop = fdt_get_property (fdt, SubNodeOffset, "legacy-wlan", &PropLen);
+      if (Prop) {
+        if (!((Value & BIT (EFICHIPINFO_PART_MODEM)) &&
+              (Value & BIT (EFICHIPINFO_PART_WLAN)) &&
+              (Value & BIT (EFICHIPINFO_PART_NAV))))
+          continue;
+      } else {
+        if (!((Value & BIT (EFICHIPINFO_PART_MODEM)) &&
+             (Value & BIT (EFICHIPINFO_PART_NAV))))
+          continue;
+      }
     }
 
      /* Add/Replace the property with Replace string value */
