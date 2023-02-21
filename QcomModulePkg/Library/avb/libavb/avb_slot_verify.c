@@ -782,29 +782,37 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
 
     switch (desc.tag) {
       case AVB_DESCRIPTOR_TAG_HASH: {
-        AvbSlotVerifyResult sub_ret;
-        sub_ret = load_and_verify_hash_partition(ops,
+        if (Avb_StrnCmp(partition_name, "la_vbmeta", avb_strlen("la_vbmeta")) == 0) {
+          /* Do nothing when loading la_vbemta, will not check hash partition here. */
+          break;
+        } else {
+          AvbSlotVerifyResult sub_ret;
+          sub_ret = load_and_verify_hash_partition(ops,
                                                  requested_partitions,
                                                  ab_suffix,
                                                  allow_verification_error,
                                                  descriptors[n],
                                                  slot_data);
-        if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
-          ret = sub_ret;
-          if (!allow_verification_error || !result_should_continue(ret)) {
-            goto out;
+          if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
+            ret = sub_ret;
+            if (!allow_verification_error || !result_should_continue(ret)) {
+              goto out;
+            }
           }
         }
       } break;
 
       case AVB_DESCRIPTOR_TAG_CHAIN_PARTITION: {
-        if (Avb_StrnCmp(partition_name, "vbmeta", avb_strlen("vbmeta")) != 0){
+        if(!allow_verification_error) {
           AvbSlotVerifyResult sub_ret;
           AvbChainPartitionDescriptor chain_desc;
           const uint8_t* chain_partition_name;
           const uint8_t* chain_public_key;
 
           /* Only allow CHAIN_PARTITION descriptors in the main vbmeta image. */
+          if (Avb_StrnCmp(partition_name, "la_vbmeta", avb_strlen("la_vbmeta")) == 0) {
+            is_main_vbmeta = true;
+          }
           if (!is_main_vbmeta) {
             avb_errorv(full_partition_name,
                      ": Encountered chain descriptor not in main image.\n",
