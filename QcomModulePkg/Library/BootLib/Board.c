@@ -468,6 +468,10 @@ BoardPmicModel (UINT32 PmicDeviceIndex)
     return 0;
   }
 
+  if ( BoardPlatformType () == EFI_PLATFORMINFO_TYPE_IOT ) {
+    return 0;
+  }
+
   Status = GetPmicInfo (PmicDeviceIndex, &pmic_info, &Revision);
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Error getting pmic model info: %r\n", Status));
@@ -488,6 +492,10 @@ BoardPmicTarget (UINT32 PmicDeviceIndex)
   EFI_PM_DEVICE_INFO_EXT_TYPE pmic_info_ext;
 
   if ( BoardPlatformType () == EFI_PLATFORMINFO_TYPE_RUMI ) {
+    return 0;
+  }
+
+  if ( BoardPlatformType () == EFI_PLATFORMINFO_TYPE_IOT ) {
     return 0;
   }
 
