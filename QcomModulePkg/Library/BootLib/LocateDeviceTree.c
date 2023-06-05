@@ -24,7 +24,12 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following
+ * license:
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
 */
+// SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "LocateDeviceTree.h"
 #include "UpdateDeviceTree.h"
@@ -116,6 +121,7 @@ DeviceTreeCompatible (VOID *dtb,
   const char *plat_prop = NULL;
   const char *board_prop = NULL;
   const char *pmic_prop = NULL;
+  const char *softsku_prop = NULL;
   char *model = NULL;
   struct dt_entry *dt_entry_array = NULL;
   struct board_id *board_data = NULL;
@@ -126,6 +132,7 @@ DeviceTreeCompatible (VOID *dtb,
   int len_plat_id;
   int min_plat_id_len = 0;
   int len_pmic_id;
+  int len_softsku_id;
   UINT32 dtb_ver;
   UINT64 NumEntries = 0;
   UINT64 i;
@@ -133,6 +140,7 @@ DeviceTreeCompatible (VOID *dtb,
   UINT32 msm_data_count;
   UINT32 board_data_count;
   UINT32 pmic_data_count;
+  UINT32 softsku_id;
   BOOLEAN Result = FALSE;
   static UINT32 DtbCount;
 
@@ -296,6 +304,15 @@ DeviceTreeCompatible (VOID *dtb,
       goto Exit;
     }
 
+    softsku_prop = (const char *)fdt_getprop (dtb, root_offset, "qcom,softsku-id", &len_softsku_id);
+    if (!softsku_prop || len_softsku_id <= 0) {
+      DEBUG ((EFI_D_INFO, "Failed to find softsku id\n"));
+      softsku_id = 0;
+    } else {
+      softsku_id = fdt32_to_cpu (((struct softsku_id *)softsku_prop)->SkuId);
+      DEBUG ((EFI_D_INFO, "softsku id is %u\n", softsku_id));
+    }
+
     /* If we have '<X>; <Y>; <Z>' as platform data & '<A>; <B>; <C>' as board
      * data.
      * Then dt entry should look like
@@ -313,6 +330,7 @@ DeviceTreeCompatible (VOID *dtb,
             dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
             dt_entry_array[k].variant_id = board_data[j].variant_id;
             dt_entry_array[k].board_hw_subtype = board_data[j].platform_subtype;
+            dt_entry_array[k].SkuId = softsku_id;
             dt_entry_array[k].pmic_rev[0] = pmic_data[n].pmic_version[0];
             dt_entry_array[k].pmic_rev[1] = pmic_data[n].pmic_version[1];
             dt_entry_array[k].pmic_rev[2] = pmic_data[n].pmic_version[2];
@@ -328,6 +346,7 @@ DeviceTreeCompatible (VOID *dtb,
           dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
           dt_entry_array[k].variant_id = board_data[j].variant_id;
           dt_entry_array[k].board_hw_subtype = board_data[j].platform_subtype;
+          dt_entry_array[k].SkuId = softsku_id;
           dt_entry_array[k].pmic_rev[0] = BoardPmicTarget (0);
           dt_entry_array[k].pmic_rev[1] = BoardPmicTarget (1);
           dt_entry_array[k].pmic_rev[2] = BoardPmicTarget (2);
@@ -760,6 +779,35 @@ STATIC EFI_STATUS GetBoardMatchDtb (DtInfo *CurDtbInfo,
   return EFI_SUCCESS;
 }
 
+STATIC EFI_STATUS GetSoftSkuMatchDtb (DtInfo *CurDtbInfo,
+                          CONST CHAR8 *SoftSkuProp, INT32 LenSoftSkuId)
+{
+  if (CurDtbInfo == NULL) {
+    DEBUG ((EFI_D_VERBOSE, "Input parameters null\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if ((SoftSkuProp) &&
+      (LenSoftSkuId >= 0)) {
+    CurDtbInfo->DtSoftSkuId =
+           fdt32_to_cpu (((struct softsku_id *)SoftSkuProp)->SkuId);
+  } else {
+    CurDtbInfo->DtSoftSkuId = 0;
+  }
+
+  DEBUG ((EFI_D_VERBOSE, "BoardSoftSkuId = %x, DtSoftSkuId = %x\n",
+                   BoardSoftSkuId (), CurDtbInfo->DtSoftSkuId));
+
+  if (CurDtbInfo->DtSoftSkuId == BoardSoftSkuId ()) {
+    CurDtbInfo->DtMatchVal |= BIT (SOFTSKU_EXACT_MATCH);
+  } else {
+    DEBUG ((EFI_D_VERBOSE, "qcom,softsku-id does not match\n"));
+  }
+
+  return EFI_SUCCESS;
+}
+
+
 /* Dt selection table for quick reference
   | SNO | Dt Property   | CDT Property    | Exact | Best | Default |
   |-----+---------------+-----------------+-------+------+---------+
@@ -784,10 +832,12 @@ ReadDtbFindMatch (DtInfo *CurDtbInfo, DtInfo *BestDtbInfo, UINT32 ExactMatch)
   EFI_STATUS Status;
   CONST CHAR8 *PlatProp = NULL;
   CONST CHAR8 *BoardProp = NULL;
+  CONST CHAR8 *SoftSkuProp = NULL;
   CONST CHAR8 *PmicProp = NULL;
   CONST CHAR8 *PmicPropSz = NULL;
   INT32 LenBoardId;
   INT32 LenPlatId;
+  INT32 LenSoftSkuId;
   INT32 LenPmicId;
   INT32 LenPmicIdSz;
   INT32 PmicMaxIdx;
@@ -864,6 +914,14 @@ ReadDtbFindMatch (DtInfo *CurDtbInfo, DtInfo *BestDtbInfo, UINT32 ExactMatch)
     goto cleanup;
   }
 
+  SoftSkuProp = (CONST CHAR8 *)fdt_getprop (Dtb, RootOffset, "qcom,softsku-id",
+                                        &LenSoftSkuId);
+  Status = GetSoftSkuMatchDtb (CurDtbInfo, SoftSkuProp, LenSoftSkuId);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_VERBOSE, "SoftSkuId dt prop search failed.\n"));
+    goto cleanup;
+  }
+
   /*Get the pmic property from Dtb then compare the dtb vs Board*/
   PmicProp =
       (CONST CHAR8 *)fdt_getprop (Dtb, RootOffset, "qcom,pmic-id", &LenPmicId);
@@ -925,6 +983,8 @@ cleanup:
       } else if (BestDtbInfo->DtPmicRev[2] < CurDtbInfo->DtPmicRev[2]) {
         gBS->CopyMem (BestDtbInfo, CurDtbInfo, sizeof (struct DtInfo));
       } else if (BestDtbInfo->DtPmicRev[3] < CurDtbInfo->DtPmicRev[3]) {
+        gBS->CopyMem (BestDtbInfo, CurDtbInfo, sizeof (struct DtInfo));
+      } else if (BestDtbInfo->DtSoftSkuId > CurDtbInfo->DtSoftSkuId) {
         gBS->CopyMem (BestDtbInfo, CurDtbInfo, sizeof (struct DtInfo));
       } else {
         FindBestMatch = FALSE;
@@ -1230,6 +1290,7 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
   UINT32 cur_dt_hw_platform;
   UINT32 cur_dt_hw_subtype;
   UINT32 cur_dt_msm_id;
+  UINT32 CurDtSkuId;
   dt_node *dt_node_tmp = NULL;
 
   /* Platform-id
@@ -1242,6 +1303,7 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
 
   /* Bits 10:8 contain ddr information */
   cur_dt_hlos_ddr = (cur_dt_entry->board_hw_subtype & 0x700);
+  CurDtSkuId   = cur_dt_entry->SkuId;
 
   /* 1. must match the msm_id, platform_hw_id, platform_subtype and DDR size
    *  soc, board major/minor, pmic major/minor must less than board info
@@ -1253,6 +1315,7 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
       (cur_dt_hw_platform == BoardPlatformType ()) &&
       (cur_dt_hw_subtype == BoardPlatformSubType ()) &&
       (cur_dt_hlos_ddr == (BoardPlatformHlosSubType() & 0x700)) &&
+      (CurDtSkuId == (BoardSoftSkuId ())) &&
       (cur_dt_entry->soc_rev <= BoardPlatformChipVersion ()) &&
       ((cur_dt_entry->variant_id & 0x00ffff00) <=
        (BoardTargetId () & 0x00ffff00)) &&
