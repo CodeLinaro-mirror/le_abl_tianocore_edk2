@@ -630,8 +630,15 @@ LoadImageNoAuthWrapper (BootInfo *Info)
   CHAR8 *SystemPath = NULL;
   UINT32 SystemPathLen = 0;
 
+  GUARD (VBCommonInit (Info));
   GUARD (VBAllocateCmdLine (Info));
   GUARD (LoadImageNoAuth (Info));
+
+  DEBUG ((EFI_D_INFO, "Sending Milestone Call\n"));
+  Status = Info->VbIntf->VBSendMilestone (Info->VbIntf);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Error sending milestone call to TZ\n"));
+  }
 
    if (!IsDynamicPartitionSupport () &&
         !IsRootCmdLineUpdated (Info)) {
