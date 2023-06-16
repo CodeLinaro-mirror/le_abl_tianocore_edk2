@@ -1263,6 +1263,7 @@ ReadMisc_boot (Slot *BootableSlot)
   UINT32 MaxHandles = MAX_HANDLEINF_LST_SIZE;
   EFI_BLOCK_IO_PROTOCOL *BlockIo = NULL;
   UINT8 *Buffer = NULL;
+  BOOLEAN IsMisc_bootPtn = FALSE;
 
   CHAR16 PtrName[] ={L"misc_boot"};
   Slot Slots[] = {{L"_a"}, {L"_b"}};
@@ -1281,6 +1282,7 @@ ReadMisc_boot (Slot *BootableSlot)
     if (StrnCmp(PtnEntries[i].PartEntry.PartitionName,
                 PtrName, StrLen (PtrName)) == 0) {
 
+      IsMisc_bootPtn = TRUE;
       DEBUG ((EFI_D_INFO, "Find %s Partiton.\n",
                            PtnEntries[i].PartEntry.PartitionName));
       MaxGptPartEntrySzBytes = BlkSz;
@@ -1316,32 +1318,49 @@ ReadMisc_boot (Slot *BootableSlot)
                 GUARD (StrnCpyS (BootableSlot->Suffix, ARRAY_SIZE (BootableSlot->Suffix),
                                  Slots[0].Suffix, StrLen (Slots[0].Suffix)));
 
-           }
-
-           DEBUG ((EFI_D_INFO, "misc_boot cookie = %02x, Boot Slot is %s\n",
-                                Buffer[0], BootableSlot->Suffix));
-           Buffer[0] = 0;
-           Status = BlockIo->WriteBlocks (BlockIo, BlockIo->Media->MediaId,
-                                          PtnEntries[i].PartEntry.StartingLBA,
-                                          MaxGptPartEntrySzBytes, Buffer);
-           if (EFI_ERROR (Status)) {
-             DEBUG ((EFI_D_ERROR, "Unable to clear the misc_boot cookie.\n"));
-             goto Exit;
-           }
-
-           BlockIo->FlushBlocks (BlockIo);
-           DEBUG ((EFI_D_INFO, "Erase misc_boot cookie is OK.\n"));
-
-        /* Compatible misc_boot partition don't exit*/
-        } else if (i == (PartitionCount -1)) {
-            if (StrnCmp(PtnEntries[i].PartEntry.PartitionName,
-                        PtrName, StrLen (PtrName)) != 0) {
-              DEBUG ((EFI_D_INFO, "No misc_boot Partition.\n"));
-              GUARD (GetActiveSlot (BootableSlot));
             }
+
+            DEBUG ((EFI_D_INFO, "misc_boot cookie = %02x, Boot Slot is %s\n",
+                                 Buffer[0], BootableSlot->Suffix));
+            Buffer[0] = 0;
+            Status = BlockIo->WriteBlocks (BlockIo, BlockIo->Media->MediaId,
+                                           PtnEntries[i].PartEntry.StartingLBA,
+                                           MaxGptPartEntrySzBytes, Buffer);
+            if (EFI_ERROR (Status)) {
+              DEBUG ((EFI_D_ERROR, "Unable to clear the misc_boot cookie.\n"));
+              goto Exit;
+            }
+
+            BlockIo->FlushBlocks (BlockIo);
+            DEBUG ((EFI_D_INFO, "Erase misc_boot cookie is OK.\n"));
+
+        /* misc_boot cookie is 0xAB, slot should be ActiveSlot */
+        } else if ( Buffer[0] == AB_BOOT_RECOVERY) {
+            GUARD (GetActiveSlot (BootableSlot));
+            DEBUG ((EFI_D_INFO, "misc_boot cookie = %02x, Boot Slot is %s\n",
+                               Buffer[0], BootableSlot->Suffix));
+            Buffer[0] = 0;
+            Status = BlockIo->WriteBlocks (BlockIo, BlockIo->Media->MediaId,
+                                           PtnEntries[i].PartEntry.StartingLBA,
+                                           MaxGptPartEntrySzBytes, Buffer);
+            if (EFI_ERROR (Status)) {
+              DEBUG ((EFI_D_ERROR, "Unable to clear the misc_boot cookie.\n"));
+              goto Exit;
+            }
+
+            BlockIo->FlushBlocks (BlockIo);
+            DEBUG ((EFI_D_INFO, "Erase misc_boot cookie is OK.\n"));
+
         }
       }
     }
+  }
+
+  /* Compatible misc_boot partition don't exit*/
+  if (!IsMisc_bootPtn) {
+    DEBUG ((EFI_D_INFO, "No misc_boot Partition.\n"));
+    GUARD (GetActiveSlot (BootableSlot));
+
   }
 
 Exit:
