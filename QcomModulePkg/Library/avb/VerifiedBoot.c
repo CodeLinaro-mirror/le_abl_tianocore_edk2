@@ -29,7 +29,7 @@
  /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -744,6 +744,56 @@ LoadImageNoAuthWrapper (BootInfo *Info)
     }
     GUARD (AppendVBCmdLine (Info, SystemPath));
   }
+
+#if LOAD_KM_AND_SET_ROT
+  DEBUG ((EFI_D_ERROR, "!!! Temporal: Loading KM TA + Set ROT %d\n"));
+  /* Load KeyMaster App */
+  GUARD (AppendVBCmdLine (Info, Space));
+  GUARD (AppendVBCmdLine (Info, KeymasterLoadState));
+
+  /* Set Rot State*/
+  KMRotAndBootStateForLE Data = {0};
+  UINT8 * Modulus = {NULL};
+  UINT8 * PublicExp = {NULL};
+
+  Data.IsUnlocked = IsUnlocked ();
+
+  /* Preparing dummy key */
+  Modulus  = (UINT8 *)AllocateZeroPool (256);
+  PublicExp = (UINT8 *)AllocateZeroPool (5);
+
+  if (NULL == Modulus ||
+      NULL == PublicExp) {
+      DEBUG ((EFI_D_ERROR,
+              "VB: LoadImageNoAuthWrapper"
+              "(LOAD_KM_AND_SET_ROT): Can't allocate key\n"));
+      return EFI_OUT_OF_RESOURCES;
+  }
+
+  memset (Modulus, 0x7, 256);
+
+  PublicExp[0] = '1';
+  PublicExp[1] = '0';
+  PublicExp[2] = '0';
+  PublicExp[3] = '0';
+  PublicExp[4] = '1';
+
+  Data.PublicKeyMod       = Modulus;
+  Data.PublicKeyModLength = 256;
+  Data.PublicKeyExp       = PublicExp;
+  Data.PublicKeyExpLength = 5;
+  DEBUG ((EFI_D_ERROR, "Calling KeyMasterSetRotForLE\n"));
+  Status = KeyMasterSetRotForLE (&Data);
+
+  FreePool (Modulus);
+  FreePool (PublicExp);
+
+  if (EFI_SUCCESS != Status) {
+    DEBUG ((EFI_D_ERROR,
+            "VB: LoadImageNoAuthWrapper (LOAD_KM_AND_SET_ROT):"
+            "KeyMasterSetRotForLE failed %r\n", Status));
+  }
+#endif
 
   return Status;
 }

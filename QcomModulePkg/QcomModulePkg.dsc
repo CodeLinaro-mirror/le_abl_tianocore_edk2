@@ -133,6 +133,10 @@
   !if $(VERIFIED_BOOT_LE)
       GCC:*_*_*_CC_FLAGS = -DVERIFIED_BOOT_LE
   !endif
+# LOAD_KM_AND_SET_ROT is temporal for HGY project and will be replaced by a full verification method later on
+  !if $(LOAD_KM_AND_SET_ROT)
+      GCC:*_*_*_CC_FLAGS = -DLOAD_KM_AND_SET_ROT
+  !endif
   !if $(SUPPORT_AB_BOOT_LXC)
       GCC:*_*_*_CC_FLAGS = -DSUPPORT_AB_BOOT_LXC
   !endif
