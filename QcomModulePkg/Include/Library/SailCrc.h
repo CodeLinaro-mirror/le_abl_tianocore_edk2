@@ -23,6 +23,15 @@
  *THE SOFTWARE.
  */
 
+#ifndef __SAILCRC_H__
+#define __SAILCRC_H__
+
+#include <Library/DebugLib.h>
+#include <Library/Debug.h>
+#include <Library/DeviceInfo.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/UefiLib.h>
+
 #define crcGEN_CHANNEL_CRC8     0U
 #define crcETH_CHANNEL_CRC32    1U
 
@@ -324,3 +333,4 @@ EFI_STATUS XCrc32Generate ( UINT8 UcChannelId, UINT8 *pucBuffer,
     return XStatus;
 }
 
+#endif

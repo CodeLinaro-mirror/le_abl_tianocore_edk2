@@ -76,6 +76,7 @@
 	DisplayCtrl.c
         Bootconfig.c
 	EarlyEthernet.c
+	SailLib.c
 
 [Packages]
 	ArmPkg/ArmPkg.dec
@@ -163,6 +164,7 @@
 	gEfiDDRGetInfoProtocolGuid
 	gEfiKernelProtocolGuid
 	gEfiDisplayPowerStateProtocolGuid
+	gEfiMailboxProtocolGuid
 
 [FixedPcd]
 	gArmTokenSpaceGuid.PcdSystemMemoryBase

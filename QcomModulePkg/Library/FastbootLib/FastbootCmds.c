@@ -49,7 +49,7 @@ found at
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -101,6 +101,7 @@ found at
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UnlockMenu.h>
 #include <Library/BootLinux.h>
+#include <Library/SailLib.h>
 #include <Uefi.h>
 
 #include <Guid/EventGroup.h>
@@ -1742,6 +1743,19 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
     return;
   }
   AsciiStrToUnicodeStr (arg, PartitionName);
+
+  #ifdef ENABLE_SAIL_FLASHING
+  if (CheckSailPartition (arg)) {
+    Status = SailFlash (arg, mFlashDataBuffer, sz);
+    if (Status != EFI_SUCCESS) {
+      FastbootFail ("Sail Flashing failed");
+       return;
+    } else {
+      FastbootOkay ("Sail Flashing succeeded");
+      return;
+    }
+  }
+  #endif
 
   if ((GetAVBVersion () == AVB_LE) ||
       ((GetAVBVersion () != AVB_LE) &&
