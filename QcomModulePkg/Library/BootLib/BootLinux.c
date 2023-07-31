@@ -1395,6 +1395,13 @@ BootLinux (BootInfo *Info)
        return Status;
   }
 
+#ifdef SCMI_UPDATES_NEEDED
+  Status = UpdateScmiInfo((VOID *)BootParamlistPtr.DeviceTreeLoadAddr);
+  if (Status != EFI_SUCCESS) {
+       return Status;
+  }
+#endif
+
 #ifdef VERFIEID_BOOT_LE
   FreeVerifiedBootResource (Info);
 #endif

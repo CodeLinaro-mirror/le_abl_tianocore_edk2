@@ -79,11 +79,19 @@
 #include <Protocol/EFIDisplayPwr.h>
 #include <Library/PartialGoods.h>
 #include <Library/FdtRw.h>
+#include <Protocol/EFIRmVm.h>
 
 #define NUM_SPLASHMEM_PROP_ELEM 4
 #define DEFAULT_CELL_SIZE 2
 #define NUM_RNG_SEED_WORDS 512
 #define NUM_RAMDUMP_PROP_ELEM   2
+#define IRQ_TYPE_EDGE_RISING 1
+#define GIC_SPI 0
+#define GIC_ESPI 2
+#define SPI_START 32
+#define SPI_END 1019
+#define ESPI_START 4096
+#define ESPI_END 5119
 
 STATIC struct FstabNode FstabTable = {"/firmware/android/fstab", "dev",
                                       "/soc/"};
@@ -92,6 +100,7 @@ STATIC struct FstabNode DynamicFstabTable = {"/firmware/android/fstab",
                                               ""};
 STATIC struct DisplaySplashBufferInfo splashBuf;
 STATIC UINTN splashBufSize = sizeof (splashBuf);
+STATIC RmVmGetHypResResponse *HypResources = NULL;
 
 STATIC VOID
 PrintSplashMemInfo (CONST CHAR8 *data, INT32 datalen)
@@ -1370,5 +1379,301 @@ UpdateFstabNode (VOID *fdt)
     FreePool (BootDevBuf);
   }
   BootDevBuf = NULL;
+  return Status;
+}
+
+EFI_STATUS
+FetchHypResources(VOID)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  RmVmProtocol *RmVmProtocol = NULL;
+  UINT32 RxSize = 0;
+  VOID *RxBuffer = NULL;
+
+  Status = gBS->LocateProtocol(&gEfiRmVmProtocolGuid, NULL, (VOID**)&RmVmProtocol);
+  if ((Status != EFI_SUCCESS) || (RmVmProtocol == NULL))  {
+	  DEBUG ((EFI_D_ERROR, "RmVmProtocol not found: %r\n", Status));
+	  return EFI_NOT_FOUND;
+  }
+
+  Status = RmVmProtocol->VmGetHypResources (RmVmProtocol, GEAR_VM_VMID, &RxBuffer, &RxSize);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_WARN, "VmGetHypResources Failed 0x%x \n", Status));
+    return Status;
+  }
+
+  HypResources = (RmVmGetHypResResponse *)(RxBuffer);
+
+  return Status;
+}
+
+STATIC EFI_STATUS
+GetDBCapId(IN UINT32 Label, OUT UINT64 *CapId)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  UINT32 index = 0;
+  UINT64 id;
+
+  if (!HypResources) {
+    Status = FetchHypResources();
+    if (Status != EFI_SUCCESS)
+      return Status;
+  }
+
+  for (index =0; index < HypResources->ResourceEntriesCount; index++)
+    if ((HypResources->ResEntries[index].ResourceType == VM_DOORBELL_SOURCE_OBJ) &&
+        (HypResources->ResEntries[index].ResLabel == Label)) {
+	id = (UINT64)HypResources->ResEntries[index].ResCapIdHigh;
+	id <<= 32;
+	id |= (UINT64)HypResources->ResEntries[index].ResCapIdLow;
+        *CapId = id;
+	return EFI_SUCCESS;
+    }
+
+  return EFI_NOT_FOUND;
+}
+
+STATIC EFI_STATUS
+GetCellsCount(IN VOID *fdt, OUT UINT32 *AddressCells, OUT UINT32 *SizeCells)
+{
+  CONST CHAR8 *Compatible = "mmio-sram";
+  INT32 Offset;
+  INT32 acell, scell;
+
+  Offset = fdt_node_offset_by_compatible(fdt, -1, Compatible);
+  if (Offset < 0) {
+    DEBUG ((EFI_D_ERROR, "sram dtb node not found\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  acell = fdt_address_cells(fdt, Offset);
+  if (acell < 0) {
+    DEBUG ((EFI_D_ERROR, "#address-cells invalid for sram dtb node\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  scell = fdt_size_cells(fdt, Offset);
+  if (scell < 0) {
+    DEBUG ((EFI_D_ERROR, "#size-cells invalid for sram dtb node\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  *AddressCells = acell;
+  *SizeCells = scell;
+
+  return EFI_SUCCESS;
+}
+
+STATIC EFI_STATUS
+GetChannelInfo(IN VOID *fdt, IN INT32 Offset, OUT UINT32 *Address, OUT UINT32 *Size)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  const fdt32_t *Val;
+  INT32 ShmemOffset;
+  INT32 Len;
+  UINT32 AddressCells, SizeCells;
+
+  Status = GetCellsCount(fdt, &AddressCells, &SizeCells);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "GetCellsCount failed\n"));
+    return Status;
+  }
+
+  DEBUG ((EFI_D_INFO, "#address-cells=%d #size-cells=%d\n", AddressCells, SizeCells));
+
+  Val = fdt_getprop(fdt, Offset, "shmem", &Len);
+  if (!Val) {
+    DEBUG ((EFI_D_ERROR, "shmem phandle not found\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  if ((Len != sizeof(*Val)) || (fdt32_to_cpu(*Val) == (UINT32)-1)) {
+    DEBUG ((EFI_D_ERROR, "invalid shmem phandle\n"));
+    return EFI_NO_MAPPING;
+  }
+
+  ShmemOffset = fdt_node_offset_by_phandle(fdt, fdt32_to_cpu(*Val));
+  if (ShmemOffset < 0) {
+    DEBUG ((EFI_D_ERROR, "invalid shmem node offset\n"));
+    return EFI_NO_MAPPING;
+  }
+
+  Val = fdt_getprop(fdt, ShmemOffset, "reg", &Len);
+  if (!Val) {
+    DEBUG ((EFI_D_ERROR, "reg property not found in shmem node\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  /* shmem for SCMI is < 4Gig i.e. it fits in 32 bits */
+  *Address = fdt32_to_cpu(*(Val + AddressCells - 1));
+  *Size = fdt32_to_cpu(*(Val + AddressCells + SizeCells - 1));
+
+  DEBUG ((EFI_D_INFO, "shmem offset=%x, Len=%d Address=%x size=%x\n", ShmemOffset, Len, *Address, *Size));
+
+  return Status;
+}
+
+STATIC EFI_STATUS
+UpdateIrq(VOID *fdt, INT32 SubNodeOffset, UINT32 Irq, BOOLEAN Espi)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  UINT32 *Prop = NULL;
+  INT32 PropLen = 0;
+  INT32 Ret = 0;
+
+  Prop = (UINT32 *)fdt_getprop(fdt, SubNodeOffset, "interrupts", &PropLen);
+  if (!Prop) {
+	  /* polling based instance don't have interrupts property
+	   * Return success
+	   */
+	  return Status;
+  }
+
+  if ((fdt32_to_cpu(*Prop) == (UINT32)-1)) {
+    DEBUG ((EFI_D_ERROR, "invalid irq property in the scmi node\n"));
+    return EFI_NO_MAPPING;
+  }
+  /* This function assumes arm,gic-v3 interrupt controller with #interrupt-cells=3 */
+  if (Espi)
+    Prop[0] = cpu_to_fdt32(GIC_ESPI);
+  else
+    Prop[0] = cpu_to_fdt32(GIC_SPI);
+
+  Prop[1] = cpu_to_fdt32(Irq);
+  Prop[2] = cpu_to_fdt32(IRQ_TYPE_EDGE_RISING);
+
+  Ret = fdt_setprop_inplace(fdt, SubNodeOffset, "interrupts", Prop, PropLen);
+  if (Ret < 0) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Could not update interrupts\n"));
+    return EFI_NO_MAPPING;
+  }
+
+  return Status;
+}
+
+STATIC EFI_STATUS
+FindDBVirq(IN UINT32 Label, OUT INT32 *Irq, OUT BOOLEAN *Espi) {
+  EFI_STATUS Status = EFI_SUCCESS;
+  UINT32 Index = 0;
+  INT32 Virq = 0;
+
+  if (!HypResources) {
+    Status = FetchHypResources();
+    if (Status != EFI_SUCCESS)
+      return Status;
+  }
+
+  for (Index =0; Index < HypResources->ResourceEntriesCount; Index++)
+    if ((HypResources->ResEntries[Index].ResourceType == VM_DOORBELL_OBJ) &&
+        (HypResources->ResEntries[Index].ResLabel == Label)) {
+	Virq = HypResources->ResEntries[Index].ResVirqNumber;
+        break;
+    }
+
+  if ((Virq >= SPI_START) && (Virq <= SPI_END)) {
+	  *Irq = Virq - SPI_START; /* SPI start at 32 in Linux */
+  } else if ((Virq >= ESPI_START) && (Virq <= ESPI_END)) {
+	  *Irq = Virq - ESPI_START; /* Extended SPI start at 4096 in Linux */
+	  *Espi = TRUE;
+  } else if (Virq) {
+	Status = EFI_NOT_FOUND;
+  }
+
+  /* For polling based instances there might not be an IRQ */
+  return Status;
+}
+
+STATIC EFI_STATUS
+FixupScmiA2pIrq(VOID *fdt, INT32 SubNodeOffset, UINT32 Label)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  INT32 Irq = 0;
+  BOOLEAN Espi = FALSE;
+
+  Status = FindDBVirq(Label, &Irq, &Espi);
+  if (Status != EFI_SUCCESS)
+    return Status;
+
+  /* polling based instance may not have incoming doorbells */
+  if (Irq > 0)
+    Status = UpdateIrq(fdt, SubNodeOffset, Irq, Espi);
+
+  return Status;
+}
+
+STATIC EFI_STATUS
+PopulateScmiChannel(IN VOID *fdt, IN INT32 SubNodeOffset, OUT UINT32 *Label)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  UINT32 Address;
+  UINT32 Size;
+  const UINT32 FuncId = 0xc6008012; /* This is fixed for Gunyah doorbells */
+  UINT64 CapId;
+  uintptr_t Addr;
+
+
+  Status = GetChannelInfo(fdt, SubNodeOffset, &Address, &Size);
+  if (Status != EFI_SUCCESS)
+    return Status;
+
+  /* Channel Address is 32 bit long as its reserved under 4Gig.
+   * The Address is used as Labels for scmi doorbells
+   */
+  Status = GetDBCapId(Address, &CapId);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Failed to get doorbell cap-id ...\n"));
+    return Status;
+  }
+
+  /* 32 bit FuncID is to be written at Address + Size - 16 */
+  Addr = (uintptr_t)(Address + Size - 16);
+  DEBUG ((EFI_D_INFO, "Writing funcid=0x%llx@0x%llx ...\n", FuncId, Addr));
+
+  *((uintptr_t *)(Addr)) = FuncId;
+
+  /* CapId is to be written at Address + Size - 8 */
+  Addr = (uintptr_t)(Address + Size - 8);
+  DEBUG ((EFI_D_INFO, "Writing capid=0x%llx@0x%llx ...\n", CapId, Addr));
+
+  *((uintptr_t *)(Addr)) = CapId;
+
+  *Label = Address;
+
+  return Status;
+}
+
+EFI_STATUS
+UpdateScmiInfo(VOID *fdt)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  CONST CHAR8 *Compatible = "qcom,scmi-hvc-shmem";
+  INT32 FwOffset;
+  INT32 SubNodeOffset;
+  UINT32 Label;
+
+  /* Get offset of the firmware node */
+  FwOffset = FdtPathOffset (fdt, "/firmware");
+  if (FwOffset < 0) {
+    DEBUG ((EFI_D_INFO, "no firmware node found...\n"));
+    return Status;
+  }
+
+  for (SubNodeOffset = fdt_first_subnode(fdt, FwOffset);
+       SubNodeOffset >= 0;
+       SubNodeOffset = fdt_next_subnode(fdt, SubNodeOffset)) {
+    if (!fdt_node_check_compatible(fdt, SubNodeOffset, Compatible)) {
+      Status = PopulateScmiChannel(fdt, SubNodeOffset, &Label);
+      if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "Failed to populate scmi channel\n"));
+        return Status;
+      }
+      Status = FixupScmiA2pIrq(fdt, SubNodeOffset, Label);
+      if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "Failed to update scmi irq info\n"));
+        return Status;
+      }
+    }
+  }
+
   return Status;
 }
