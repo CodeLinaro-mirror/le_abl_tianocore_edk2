@@ -2011,6 +2011,18 @@ BOOLEAN IsABRetryCountDisabled (VOID)
 }
 #endif
 
+#ifdef AB_FORCE_USE_SYSTEM_A
+BOOLEAN IsABForceUseSystemA (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN IsABForceUseSystemA (VOID)
+{
+  return FALSE;
+}
+#endif
+
 BOOLEAN IsSuperPartitionExist (VOID)
 {
   UINT32 PtnCount;
