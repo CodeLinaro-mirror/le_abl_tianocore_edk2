@@ -571,11 +571,11 @@ DTBImgCheckAndAppendDT (BootInfo *Info, BootParamlist *BootParamlistPtr)
         NextDtHdr =
           (VOID *)((uintptr_t)SingleDtHdr + fdt_totalsize (SingleDtHdr));
         if (!fdt_check_header (NextDtHdr)) {
-          DEBUG ((EFI_D_VERBOSE, "Not the single appended DTB\n"));
-          return EFI_NOT_FOUND;
+          DEBUG ((EFI_D_VERBOSE, "Multiple appended DTBs found\n"));
+        } else {
+          DEBUG ((EFI_D_VERBOSE, "Single appended DTB found\n"));
         }
 
-        DEBUG ((EFI_D_VERBOSE, "Single appended DTB found\n"));
         if (CHECK_ADD64 (BootParamlistPtr->DeviceTreeLoadAddr,
                                 fdt_totalsize (SingleDtHdr))) {
           DEBUG ((EFI_D_ERROR,
