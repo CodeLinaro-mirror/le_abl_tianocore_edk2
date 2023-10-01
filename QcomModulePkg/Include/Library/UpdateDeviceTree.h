@@ -154,4 +154,7 @@ UpdateFstabNode (VOID *fdt);
 
 UINT32
 fdt_check_header_ext (VOID *fdt);
+
+EFI_STATUS
+UpdateScmiInfo(VOID *fdt);
 #endif
