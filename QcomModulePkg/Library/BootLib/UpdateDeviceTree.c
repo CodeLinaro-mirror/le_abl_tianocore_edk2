@@ -1646,7 +1646,7 @@ EFI_STATUS
 UpdateScmiInfo(VOID *fdt)
 {
   EFI_STATUS Status = EFI_SUCCESS;
-  CONST CHAR8 *Compatible = "qcom,scmi-hvc-shmem";
+  CONST CHAR8 *Compatible = "qcom,scmi-smc";
   INT32 FwOffset;
   INT32 SubNodeOffset;
   UINT32 Label;
