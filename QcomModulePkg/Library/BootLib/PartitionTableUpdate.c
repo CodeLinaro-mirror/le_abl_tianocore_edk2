@@ -1298,7 +1298,7 @@ ReadMisc_boot (Slot *BootableSlot)
   UINT32 MaxHandles = MAX_HANDLEINF_LST_SIZE;
   EFI_BLOCK_IO_PROTOCOL *BlockIo = NULL;
   UINT8 *Buffer = NULL;
-  BOOLEAN IsMisc_bootPtn = FALSE;
+  BOOLEAN IsMiscbootPtn = FALSE;
 
   CHAR16 PtrName[] ={L"misc_boot"};
   Slot Slots[] = {{L"_a"}, {L"_b"}};
@@ -1317,7 +1317,7 @@ ReadMisc_boot (Slot *BootableSlot)
     if (StrnCmp(PtnEntries[i].PartEntry.PartitionName,
                 PtrName, StrLen (PtrName)) == 0) {
 
-      IsMisc_bootPtn = TRUE;
+      IsMiscbootPtn = TRUE;
       DEBUG ((EFI_D_INFO, "Find %s Partiton.\n",
                            PtnEntries[i].PartEntry.PartitionName));
       MaxGptPartEntrySzBytes = BlkSz;
@@ -1370,7 +1370,7 @@ ReadMisc_boot (Slot *BootableSlot)
             DEBUG ((EFI_D_INFO, "Erase misc_boot cookie is OK.\n"));
 
         /* misc_boot cookie is 0xAB, slot should be ActiveSlot */
-        } else if ( Buffer[0] == AB_BOOT_RECOVERY) {
+        } else if (Buffer[0] == AB_BOOT_RECOVERY) {
             GUARD (GetActiveSlot (BootableSlot));
             DEBUG ((EFI_D_INFO, "misc_boot cookie = %02x, Boot Slot is %s\n",
                                Buffer[0], BootableSlot->Suffix));
@@ -1392,10 +1392,9 @@ ReadMisc_boot (Slot *BootableSlot)
   }
 
   /* Compatible misc_boot partition don't exit*/
-  if (!IsMisc_bootPtn) {
+  if (!IsMiscbootPtn) {
     DEBUG ((EFI_D_INFO, "No misc_boot Partition.\n"));
     GUARD (GetActiveSlot (BootableSlot));
-
   }
 
 Exit:
