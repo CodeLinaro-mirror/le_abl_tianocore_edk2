@@ -1479,8 +1479,6 @@ GetChannelInfo(IN VOID *fdt, IN INT32 Offset, OUT UINT32 *Address, OUT UINT32 *S
     return Status;
   }
 
-  DEBUG ((EFI_D_INFO, "#address-cells=%d #size-cells=%d\n", AddressCells, SizeCells));
-
   Val = fdt_getprop(fdt, Offset, "shmem", &Len);
   if (!Val) {
     DEBUG ((EFI_D_ERROR, "shmem phandle not found\n"));
@@ -1507,8 +1505,6 @@ GetChannelInfo(IN VOID *fdt, IN INT32 Offset, OUT UINT32 *Address, OUT UINT32 *S
   /* shmem for SCMI is < 4Gig i.e. it fits in 32 bits */
   *Address = fdt32_to_cpu(*(Val + AddressCells - 1));
   *Size = fdt32_to_cpu(*(Val + AddressCells + SizeCells - 1));
-
-  DEBUG ((EFI_D_INFO, "shmem offset=%x, Len=%d Address=%x size=%x\n", ShmemOffset, Len, *Address, *Size));
 
   return Status;
 }
@@ -1597,6 +1593,8 @@ FixupScmiA2pIrq(VOID *fdt, INT32 SubNodeOffset, UINT32 Label)
   /* polling based instance may not have incoming doorbells */
   if (Irq > 0)
     Status = UpdateIrq(fdt, SubNodeOffset, Irq, Espi);
+  else
+    DEBUG ((EFI_D_INFO, "interrupts property not updated for scmi channel=0x%x\n", Label));
 
   return Status;
 }
@@ -1607,10 +1605,8 @@ PopulateScmiChannel(IN VOID *fdt, IN INT32 SubNodeOffset, OUT UINT32 *Label)
   EFI_STATUS Status = EFI_SUCCESS;
   UINT32 Address;
   UINT32 Size;
-  const UINT32 FuncId = 0xc6008012; /* This is fixed for Gunyah doorbells */
   UINT64 CapId;
   uintptr_t Addr;
-
 
   Status = GetChannelInfo(fdt, SubNodeOffset, &Address, &Size);
   if (Status != EFI_SUCCESS)
@@ -1625,12 +1621,6 @@ PopulateScmiChannel(IN VOID *fdt, IN INT32 SubNodeOffset, OUT UINT32 *Label)
     return Status;
   }
 
-  /* 32 bit FuncID is to be written at Address + Size - 16 */
-  Addr = (uintptr_t)(Address + Size - 16);
-  DEBUG ((EFI_D_INFO, "Writing funcid=0x%llx@0x%llx ...\n", FuncId, Addr));
-
-  *((uintptr_t *)(Addr)) = FuncId;
-
   /* CapId is to be written at Address + Size - 8 */
   Addr = (uintptr_t)(Address + Size - 8);
   DEBUG ((EFI_D_INFO, "Writing capid=0x%llx@0x%llx ...\n", CapId, Addr));
@@ -1640,6 +1630,20 @@ PopulateScmiChannel(IN VOID *fdt, IN INT32 SubNodeOffset, OUT UINT32 *Label)
   *Label = Address;
 
   return Status;
+}
+
+int
+fdt_node_check_status_ok(const void *fdt, int nodeoffset)
+{
+  const char *status = "ok";
+  const void *prop;
+  int len;
+
+  prop = fdt_getprop(fdt, nodeoffset, "status" , &len);
+  if (!prop)
+    return 0; /* if the property not preset, assume ok */
+
+  return !(memcmp(prop, status, strlen(status)) == 0);
 }
 
 EFI_STATUS
@@ -1661,7 +1665,8 @@ UpdateScmiInfo(VOID *fdt)
   for (SubNodeOffset = fdt_first_subnode(fdt, FwOffset);
        SubNodeOffset >= 0;
        SubNodeOffset = fdt_next_subnode(fdt, SubNodeOffset)) {
-    if (!fdt_node_check_compatible(fdt, SubNodeOffset, Compatible)) {
+    if (!fdt_node_check_compatible(fdt, SubNodeOffset, Compatible) &&
+        !fdt_node_check_status_ok(fdt, SubNodeOffset)) {
       Status = PopulateScmiChannel(fdt, SubNodeOffset, &Label);
       if (Status != EFI_SUCCESS) {
         DEBUG ((EFI_D_ERROR, "Failed to populate scmi channel\n"));
