@@ -130,7 +130,7 @@ cleanall:
 
 EDK_TOOLS_BIN:
 	@. ./edksetup.sh BaseTools && \
-	$(MAKEPATH)make -C $(EDK_TOOLS) $(PREBUILT_HOST_TOOLS) -j1
+	$(MAKEPATH)make -C $(EDK_TOOLS) $(PREBUILT_HOST_TOOLS)
 
 ABL_FV_IMG: EDK_TOOLS_BIN
 	@. ./edksetup.sh BaseTools && \
@@ -159,7 +159,7 @@ ABL_FV_IMG: EDK_TOOLS_BIN
 	-D RW_ROOTFS=$(RW_ROOTFS) \
 	-D BOOT_WITH_FS=$(BOOT_WITH_FS) \
 	-D UBUNTU_AB_OTA=$(UBUNTU_AB_OTA) \
-	-j build_modulepkg.log $*
+	 $*
 
 	cp $(BUILD_ROOT)/FV/FVMAIN_COMPACT.Fv $(ABL_FV_IMG)
 
