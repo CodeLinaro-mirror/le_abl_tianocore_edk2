@@ -427,6 +427,12 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN BootIntoRecovery,
     return 0;
   }
 
+  if (IsABForceUseSystemA()) {
+      AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+          " root=PARTLABEL=system_a");
+     return AsciiStrLen (*SysPath);
+  }
+
   if (FlashlessBoot) {
      AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                      " rootfstype=squashfs root=/dev/ram0");

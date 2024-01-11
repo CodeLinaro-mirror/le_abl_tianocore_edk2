@@ -163,6 +163,9 @@
   !if $(SCMI_UPDATES_NEEDED) == 1
       GCC:*_*_*_CC_FLAGS = -DSCMI_UPDATES_NEEDED
   !endif
+  !if $(AB_FORCE_USE_SYSTEM_A) == 1
+      GCC:*_*_*_CC_FLAGS = -DAB_FORCE_USE_SYSTEM_A
+  !endif
   !if $(VERITY_LE)
       GCC:*_*_*_CC_FLAGS = -DVERITY_LE
   !endif
