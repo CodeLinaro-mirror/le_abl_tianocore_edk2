@@ -30,7 +30,7 @@
 #/*
 # *  Changes from Qualcomm Innovation Center are provided under the following license:
 # *
-# *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# *  Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # *
 # *  Redistribution and use in source and binary forms, with or without
 # *  modification, are permitted (subject to the limitations in the
@@ -136,6 +136,10 @@
 # LOAD_KM_AND_SET_ROT is temporal for HGY project and will be replaced by a full verification method later on
   !if $(LOAD_KM_AND_SET_ROT)
       GCC:*_*_*_CC_FLAGS = -DLOAD_KM_AND_SET_ROT
+  !endif
+# PVM_SKIP_DTBO to skip load dtbo.image
+  !if $(PVM_SKIP_DTBO)
+      GCC:*_*_*_CC_FLAGS = -DPVM_SKIP_DTBO
   !endif
   !if $(SUPPORT_AB_BOOT_LXC)
       GCC:*_*_*_CC_FLAGS = -DSUPPORT_AB_BOOT_LXC
