@@ -26,7 +26,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #if HIBERNATION_SUPPORT_INSECURE
@@ -47,6 +47,9 @@
 #endif
 #if HIBERNATION_32BIT_MODE_SWITCH
 #include <Protocol/EFIScmModeSwitch.h>
+#endif
+#if RESTORE_FDE_KEY
+#include <Protocol/EFIScm.h>
 #endif
 
 #define BUG(fmt, ...) {\
@@ -1300,6 +1303,93 @@ static int init_aes_decrypt(void)
 	printf("Insecure Hibernation restore -----------\n");
 	return 0;
 }
+
+#endif
+
+#if RESTORE_FDE_KEY
+static EFI_STATUS restore_fde_key(void)
+{
+	EFI_STATUS Status = EFI_SUCCESS;
+	QCOM_SCM_PROTOCOL *ScmProtocol = NULL;
+	QseeGenKeyReq GenKeyReq = {0};
+	QseeGenKeyRsp GenKeyRsp = {0};
+	QseeSetKeyReq SetKeyReq = {0};
+	QseeSetKeyRsp SetKeyRsp = {0};
+	CHAR8 *BootDevBuf = NULL;
+
+	// Locate QCOM_SCM_PROTOCOL.
+	Status = gBS->LocateProtocol(&gQcomScmProtocolGuid, NULL,
+							(VOID **)&ScmProtocol);
+
+	if (Status != EFI_SUCCESS) {
+		DEBUG ((EFI_D_ERROR, "Error in locating Qseecom protocol Guid: %r\n", Status));
+		return Status;
+	}
+
+	BootDevBuf = AllocateZeroPool (sizeof (CHAR8) * BOOT_DEV_MAX_LEN);
+	if (BootDevBuf == NULL) {
+		DEBUG ((EFI_D_ERROR, "Boot device buffer: Out of resources\n"));
+		return EFI_OUT_OF_RESOURCES;
+	}
+	Status = GetBootDevice (BootDevBuf, BOOT_DEV_MAX_LEN);
+	if (Status != EFI_SUCCESS) {
+		DEBUG ((EFI_D_ERROR, "Failed to get Boot Device: %r\n", Status));
+		goto err;
+	}
+	if (!AsciiStrStr (BootDevBuf, "sdhci")) {
+		CopyMem(GenKeyReq.key_id, CRYPTO_ICE_FDE_LEGACY_UFS, sizeof(CRYPTO_ICE_FDE_LEGACY_UFS));
+		CopyMem(SetKeyReq.key_id, CRYPTO_ICE_FDE_LEGACY_UFS, sizeof(CRYPTO_ICE_FDE_LEGACY_UFS));
+		SetKeyReq.ce = QSEECOM_UFS_ICE_CE_NUM;
+	}
+	else {
+		CopyMem(GenKeyReq.key_id, CRYPTO_ICE_FDE_LEGACY_EMMC, sizeof(CRYPTO_ICE_FDE_LEGACY_EMMC));
+		CopyMem(SetKeyReq.key_id, CRYPTO_ICE_FDE_LEGACY_EMMC, sizeof(CRYPTO_ICE_FDE_LEGACY_EMMC));
+		SetKeyReq.ce = QSEECOM_SDCC_ICE_CE_NUM;
+	}
+
+	GenKeyReq.flags = QSEECOM_ICE_FDE_KEY_SIZE_32_BYTE;
+	CopyMem(GenKeyReq.hash32, FDE_KEY_CONTEXT, sizeof(FDE_KEY_CONTEXT));
+
+	//Make scm call to generate the key
+	Status = ScmProtocol->ScmSendCommand (
+		ScmProtocol, APP_KS_GEN_KEY_COMMAND, NULL, (UINT8 *)&GenKeyReq, sizeof(GenKeyReq), (UINT8 *)&GenKeyRsp, sizeof(GenKeyRsp)
+	);
+	//Set the Status to success to take care of case when keyId already exists
+	Status = EFI_SUCCESS;
+
+	if (GenKeyRsp.Status) {
+		Status = EFI_UNSUPPORTED;
+		DEBUG ((EFI_D_ERROR, "FDE generate key scm call is failed: %r\n", Status));
+		goto err;
+	}
+
+	SetKeyReq.flags = QSEECOM_ICE_FDE_KEY_SIZE_32_BYTE;
+	SetKeyReq.pipe = CRYPTO_ICE_FDE_KEY_INDEX;
+	SetKeyReq.pipe_type = QSEOS_PIPE_ENC | QSEOS_PIPE_ENC_XTS;
+	CopyMem(SetKeyReq.hash32, FDE_KEY_CONTEXT, sizeof(FDE_KEY_CONTEXT));
+
+	//Make a scm call to set the key in ICE
+	Status = ScmProtocol->ScmSendCommand (
+		ScmProtocol, APP_KS_SET_KEY_COMMAND, NULL, (UINT8 *)&SetKeyReq, sizeof(SetKeyReq), (UINT8 *)&SetKeyRsp, sizeof(SetKeyRsp)
+	);
+	if (SetKeyRsp.Status) {
+		Status = EFI_UNSUPPORTED;
+		DEBUG ((EFI_D_ERROR, "FDE set key scm call is failed: %r\n", Status));
+	}
+
+err:
+	FreePool (BootDevBuf);
+	BootDevBuf = NULL;
+	return Status;
+}
+#else
+
+static EFI_STATUS restore_fde_key(void)
+{
+	EFI_STATUS Status = EFI_SUCCESS;
+	DEBUG ((EFI_D_INFO, "Full disk encryption is not supported with hibernate\n"));
+	return Status;
+}
 #endif
 
 void BootIntoHibernationImage(BootInfo *Info, BOOLEAN *SetRotAndBootState)
@@ -1325,6 +1415,12 @@ void BootIntoHibernationImage(BootInfo *Info, BOOLEAN *SetRotAndBootState)
 	Status = LoadImageAndAuth (Info, TRUE, FALSE);
 	if (Status != EFI_SUCCESS) {
 		DEBUG ((EFI_D_ERROR, "Failed to set ROT and Bootstate : %r\n", Status));
+		goto err;
+	}
+
+	Status = restore_fde_key();
+	if (Status != EFI_SUCCESS) {
+		DEBUG ((EFI_D_ERROR, "Failed to set FDE key in ICE : %r\n", Status));
 		goto err;
 	}
 

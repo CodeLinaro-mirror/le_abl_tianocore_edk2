@@ -202,6 +202,9 @@
   !if $(RW_ROOTFS)
       GCC:*_*_*_CC_FLAGS = -DRW_ROOTFS
   !endif
+  !if $(RESTORE_FDE_KEY)
+      GCC:*_*_*_CC_FLAGS = -DRESTORE_FDE_KEY
+  !endif
 
 [PcdsFixedAtBuild.common]
 

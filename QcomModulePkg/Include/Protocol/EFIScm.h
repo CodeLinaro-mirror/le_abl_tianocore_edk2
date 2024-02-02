@@ -73,9 +73,8 @@ typedef enum {
   APP_REGISTER_LOG_BUF_COMMAND,      /**< Register log buffer. */
   APP_PROVISION_RPMB_KEY_COMMAND,    /**< Provision RPMB key. */
   APP_RPMB_ERASE_COMMAND,            /**< Erase RPMB. */
-  APP_RPMB_CHECK_PROV_STATUS_COMMAND /**< Checks the RPMB provisioning status.
-                                        */
-
+  APP_KS_GEN_KEY_COMMAND = 0x20,     /**< Generate FDE Key. */
+  APP_KS_SET_KEY_COMMAND             /**< Set FDE key.*/
 } AppCmdType;
 
 #define SCM_MAX_NUM_PARAMETERS 10
