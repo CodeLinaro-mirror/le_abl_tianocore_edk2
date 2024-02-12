@@ -33,7 +33,7 @@
 /*
   * Changes from Qualcomm Innovation Center are provided under the following
   * license:
-  * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
   * modification, are permitted (subject to the limitations in the disclaimer
@@ -120,7 +120,9 @@ STATIC CHAR8 *SilentBootNForCmdLine =
 
 /*Send slot suffix in cmdline with which we have booted*/
 STATIC CHAR8 *AndroidSlotSuffix = " androidboot.slot_suffix=";
-STATIC CHAR8 *RootCmdLine = " rootwait ro init=";
+STATIC CHAR8 *RootReadWrite = "rw";
+STATIC CHAR8 *RootRwRoCmdLine = " ro";
+STATIC CHAR8 *RootCmdLine = " rootwait init=";
 STATIC CHAR8 *InitCmdline = INIT_BIN;
 STATIC CHAR8 *SkipRamFs = " skip_initramfs";
 
@@ -767,6 +769,12 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param, CHAR8 **FinalCmdLine,
          AsciiStrCatS (Dst, MaxCmdLineLen, Src);
        }
 
+     /* Add "ro" to command line if boot image does not contian "rw" */
+     if (Param->RootRwRoCmdLine != NULL) {
+       Src = Param->RootRwRoCmdLine;
+       AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+     }
+
      /* Add root command line */
      Src = Param->RootCmdLine;
      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
@@ -1272,6 +1280,21 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
       !MultiSlotBoot) ||
       (MultiSlotBoot &&
       !IsBootDevImage ())) {
+    /* Don't add "ro" argument if boot image has "rw" */
+    if (HaveCmdLine &&
+        !AsciiStrStr (CmdLine, RootReadWrite)) {
+      ParamLen = AsciiStrLen (RootRwRoCmdLine);
+      BootConfigFlag = IsAndroidBootParam (RootRwRoCmdLine,
+                            ParamLen, HeaderVersion);
+      ADD_PARAM_LEN (BootConfigFlag, ParamLen,
+                 CmdLineLen, BootConfigLen);
+      AddtoBootConfigList (BootConfigFlag, RootRwRoCmdLine, NULL,
+                  BootConfigListHead, ParamLen, 0);
+      Param.RootRwRoCmdLine = RootRwRoCmdLine;
+    }
+    else {
+      Param.RootRwRoCmdLine = NULL;
+    }
     ParamLen = AsciiStrLen (RootCmdLine);
     BootConfigFlag = IsAndroidBootParam (RootCmdLine,
                             ParamLen, HeaderVersion);

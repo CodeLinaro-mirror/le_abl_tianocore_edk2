@@ -49,7 +49,7 @@ found at
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -101,6 +101,7 @@ found at
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UnlockMenu.h>
 #include <Library/BootLinux.h>
+#include <Library/SailLib.h>
 #include <Uefi.h>
 
 #include <Guid/EventGroup.h>
@@ -1743,6 +1744,19 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
   }
   AsciiStrToUnicodeStr (arg, PartitionName);
 
+  #ifdef ENABLE_SAIL_FLASHING
+  if (CheckSailPartition (arg)) {
+    Status = SailFlash (arg, mFlashDataBuffer, sz);
+    if (Status != EFI_SUCCESS) {
+      FastbootFail ("Sail Flashing failed");
+       return;
+    } else {
+      FastbootOkay ("Sail Flashing succeeded");
+      return;
+    }
+  }
+  #endif
+
   if ((GetAVBVersion () == AVB_LE) ||
       ((GetAVBVersion () != AVB_LE) &&
       (TargetBuildVariantUser ()))) {
@@ -2811,6 +2825,41 @@ CmdGetVar (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
   FastbootFail ("GetVar Variable Not found");
 }
 
+#ifdef ENABLE_SAIL_BOOT
+
+STATIC BOOLEAN EnableSailBoot = FALSE;
+
+STATIC VOID
+CmdOemSailBootEnable (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Sz)
+{
+  CHAR8 *Ptr = NULL;
+  CONST CHAR8 *Delim = " ";
+
+  if (Arg) {
+    Ptr = AsciiStrStr (Arg, Delim);
+    if (Ptr) {
+      Ptr++;
+      if (!AsciiStrCmp (Ptr, "0")) {
+        EnableSailBoot = FALSE;
+      } else if (!AsciiStrCmp (Ptr, "1")) {
+        EnableSailBoot = TRUE;
+      }  else {
+        FastbootFail ("Invalid input entered");
+        return;
+      }
+    } else {
+      FastbootFail ("Enter fastboot oem sail-boot-enable 0/1");
+      return;
+    }
+  } else {
+    FastbootFail ("Enter fastboot oem sail-boot-enable 0/1");
+    return;
+  }
+  FastbootOkay ("");
+  return;
+}
+#endif
+
 #ifdef ENABLE_BOOT_CMD
 STATIC VOID
 CmdBoot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
@@ -2824,6 +2873,19 @@ CmdBoot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
   CHAR8 Resp[MAX_RSP_SIZE];
   BOOLEAN MdtpActive = FALSE;
   BootInfo Info = {0};
+
+  #ifdef ENABLE_SAIL_BOOT
+  if (EnableSailBoot) {
+    Status = SailBoot (Data, Size, TRUE);
+    if (Status != EFI_SUCCESS) {
+      FastbootFail ("SAIL Booting Failed.");
+      return;
+    } else {
+      FastbootOkay ("");
+      return;
+    }
+  }
+  #endif
 
   if (FixedPcdGetBool (EnableMdtpSupport)) {
     Status = IsMdtpActive (&MdtpActive);
@@ -3880,6 +3942,9 @@ FastbootCommandSetup (IN VOID *Base, IN UINT64 Size)
       {"oem device-info", CmdOemDevinfo},
 #if HIBERNATION_SUPPORT_NO_AES
       {"oem golden-snapshot", CmdGoldenSnapshot},
+#endif
+#ifdef ENABLE_SAIL_BOOT
+      {"oem sail-boot-enable", CmdOemSailBootEnable},
 #endif
       {"continue", CmdContinue},
       {"reboot", CmdReboot},

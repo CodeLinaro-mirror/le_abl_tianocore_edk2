@@ -10,6 +10,8 @@ DEVICE_STATUS="DEFAULT_UNLOCK=true"
 INIT_BIN_LE="\"/sbin/init\""
 DISABLE_PARALLEL_DOWNLOAD_FLASH=1
 SCMI_UPDATES_NEEDED=1
+ENABLE_SAIL_FLASHING=1
+ENABLE_SAIL_BOOT=1
 
 ################################################################################
 . ${ROOT_DIR}/${ABL_SRC}/QcomModulePkg/build.config.msm.common
