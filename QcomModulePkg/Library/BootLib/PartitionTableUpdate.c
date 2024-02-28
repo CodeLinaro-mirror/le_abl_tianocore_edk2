@@ -71,6 +71,7 @@
 #include <Uefi.h>
 #include <Uefi/UefiSpec.h>
 #include <VerifiedBoot.h>
+#include <Library/ShutdownServices.h>
 
 STATIC BOOLEAN FlashingGpt;
 STATIC BOOLEAN ParseSecondaryGpt;
@@ -1303,6 +1304,11 @@ ReadMisc_boot (Slot *BootableSlot)
   CHAR16 PtrName[] ={L"misc_boot"};
   Slot Slots[] = {{L"_a"}, {L"_b"}};
 
+  BOOLEAN FlagReboot = FALSE;
+  EFI_GUID AblRGuid = {
+    0x4ED7A78D, 0x9BB0, 0x478A, {0xB0, 0xB8, 0x93, 0x49, 0xBC, 0xB2, 0xD9, 0x34}
+  };
+
   GetRootDeviceType (BootDeviceType, BOOT_DEV_NAME_SIZE_MAX);
   for (Lun = 0; Lun < MaxLuns; Lun++) {
     if (!AsciiStrnCmp (BootDeviceType, "EMMC", AsciiStrLen ("EMMC"))) {
@@ -1368,6 +1374,25 @@ ReadMisc_boot (Slot *BootableSlot)
 
             BlockIo->FlushBlocks (BlockIo);
             DEBUG ((EFI_D_INFO, "Erase misc_boot cookie is OK.\n"));
+
+            /* When the specified GUID is detected in the A/B partition,
+             * the system will auto reboot from the Recovery chain to the Primary chain*/
+            for (i = 0; i < PartitionCount; i++) {
+              if (StrnCmp(PtnEntries[i].PartEntry.PartitionName,
+                          L"abl_a", StrLen (L"abl_a")) == 0 ||
+                  StrnCmp(PtnEntries[i].PartEntry.PartitionName,
+                          L"abl_b", StrLen (L"abl_b")) == 0) {
+                 if (CompareGuid (&AblRGuid, &PtnEntries[i].PartEntry.PartitionTypeGUID)) {
+                   FlagReboot = TRUE;
+                   break;
+                 }
+              }
+            }
+
+            if (FlagReboot) {
+              DEBUG ((EFI_D_INFO, "Reboot Device into Primary chain.\n"));
+              RebootDevice (NORMAL_MODE);
+            }
 
         /* misc_boot cookie is 0xAB, slot should be ActiveSlot */
         } else if (Buffer[0] == AB_BOOT_RECOVERY) {
