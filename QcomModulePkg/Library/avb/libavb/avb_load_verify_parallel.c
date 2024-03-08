@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 - 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -282,7 +282,8 @@ INT32 PartitionLoad(VOID* Arg) {
    * Ensure the last chunk is larger than SplitImageSize, break out of
    * loop when less than twice the SplitImageSize.
    */
-  while(ThreadLoad->RemainImageSize >  (SplitImageSize << 1) ) {
+  while (ThreadLoad->RemainImageSize > (SplitImageSize +
+                                        (SplitImageSize >> 1))) {
     Status = Load_partition_to_verify(ThreadLoad->ops,
               part_name,
               ImageOffset,
@@ -348,7 +349,8 @@ INT32 PartitionVerify(VOID* Arg) {
   SplitImageSize = ThreadVerify->SplitImageSize;
   CurrentChunkSize = SplitImageSize;
   /* First stage */
-  while(ThreadVerify->RemainImageSize >  (SplitImageSize << 1)) {
+  while (ThreadVerify->RemainImageSize > (SplitImageSize +
+                                          (SplitImageSize >> 1))) {
     KernIntf->Sem->SemWait (SemLoadFirst);
     if(ThreadVerify->Sha256HashCheck == true)
     {
@@ -423,7 +425,7 @@ EFI_STATUS CreateReaderThreads(LoadVerifyInfo *ThreadLoadInfo, LoadVerifyInfo *T
   EFI_STATUS Status = EFI_SUCCESS;
   Thread* LoadThread = NULL;
   Thread* VerifyThread = NULL;
-  int corenum = 0;
+  int corenum = 4;
 
   LoadThread = KernIntf->Thread->ThreadCreate ("Executethreadwrapper_1",
                                         PartitionLoad, (VOID*)ThreadLoadInfo,
