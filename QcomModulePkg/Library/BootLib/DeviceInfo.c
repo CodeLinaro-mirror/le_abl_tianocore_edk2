@@ -25,6 +25,13 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "AutoGen.h"
 #include "LinuxLoaderLib.h"
 #include "Board.h"
@@ -259,6 +266,8 @@ EFI_STATUS DeviceInfoInit (VOID)
     gBS->CopyMem (DevInfo.magic, DEVICE_MAGIC, DEVICE_MAGIC_SIZE);
     DevInfo.user_public_key_length = 0;
     gBS->SetMem (DevInfo.rollback_index, sizeof (DevInfo.rollback_index), 0);
+    gBS->SetMem (DevInfo.android_rollback_index, sizeof (DevInfo.android_rollback_index), 0);
+    gBS->SetMem (DevInfo.persistent_value, sizeof (DevInfo.persistent_value), 0);
     gBS->SetMem (DevInfo.user_public_key, sizeof (DevInfo.user_public_key), 0);
     if (IsSecureBootEnabled ()) {
       DevInfo.is_unlocked = FALSE;
@@ -269,6 +278,7 @@ EFI_STATUS DeviceInfoInit (VOID)
     }
     DevInfo.is_charger_screen_enabled = FALSE;
     DevInfo.verity_mode = TRUE;
+    DevInfo.android_verity_mode = TRUE;
     Status =
         ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo, sizeof (DevInfo));
     if (Status != EFI_SUCCESS) {
