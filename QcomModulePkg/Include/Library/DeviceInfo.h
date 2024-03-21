@@ -28,6 +28,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef _DEVINFO_H_
 #define _DEVINFO_H_
 
@@ -38,11 +44,24 @@
 #define MAX_VERSION_LEN 64
 #define MAX_VB_PARTITIONS 32
 #define MAX_USER_KEY_SIZE 2048
+#define MAX_ENTRY_SIZE    8
+#define MAX_NAME_SIZE     56
+#define MAX_VALUE_SIZE    32
+#define MAX_AUDIO_FW_LENGTH 16
+#define DICE_HIDDEN_SIZE 32
 
 enum unlock_type {
   UNLOCK = 0,
   UNLOCK_CRITICAL,
 };
+
+typedef struct {
+  UINT16  in_use;
+  UINT16  name_size;
+  UINT16  value_size;
+  UINT8   name[MAX_NAME_SIZE];
+  UINT8   value[MAX_VALUE_SIZE];
+} persistent_value_type;
 
 typedef struct device_info {
   CHAR8 magic[DEVICE_MAGIC_SIZE];
@@ -57,6 +76,19 @@ typedef struct device_info {
   UINT64 rollback_index[MAX_VB_PARTITIONS];
   struct usb_composition usb_comp;
   UINTN golden_snapshot;
+
+  /*
+   * Below fields should not be used by native bootloader as
+   * they are meant to be used only by guest bootloader.
+   */
+  BOOLEAN android_verity_mode; // TRUE = enforcing, FALSE = logging
+  UINT64 android_rollback_index[MAX_VB_PARTITIONS];
+  persistent_value_type persistent_value[MAX_ENTRY_SIZE];
+  CHAR8 AudioFramework[MAX_AUDIO_FW_LENGTH];
+  UINT8 FdrFlag;
+  UINT32 FrsSecLen; /*Holds length of FRS secret*/
+  UINT8 FrsSec[DICE_HIDDEN_SIZE]; /*Holds plain secret*/
+
 } DeviceInfo;
 
 struct verified_boot_verity_mode {
