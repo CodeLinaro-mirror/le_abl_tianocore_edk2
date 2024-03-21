@@ -26,6 +26,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 /* Supporting function of UpdateDeviceTree()
  * Function adds memory map entries to the device tree binary
  * dev_tree_add_mem_info() is called at every time when memory type matches
@@ -343,6 +349,9 @@ AddMemMap (VOID *Fdt, UINT32 MemNodeOffset, BOOLEAN BootWith32Bit)
   UINT32 NumPartitions = 0;
   UINT32 i = 0;
   UINT32 MemoryCellLen = 0;
+
+  DEBUG ((EFI_D_INFO, "Skip memory node modification\n"));
+  return EFI_SUCCESS;
 
   Status = QueryMemoryCellSize (Fdt, &MemoryCellLen);
   if (EFI_ERROR (Status)) {
