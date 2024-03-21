@@ -640,7 +640,7 @@ STATIC EFI_STATUS
 GZipPkgCheck (BootParamlist *BootParamlistPtr)
 {
   UINT32 OutLen = 0;
-  UINT64 OutAvaiLen = 0;
+  UINT64 OutAvaiLen = MAX_UINT32;
   struct kernel64_hdr *Kptr = NULL;
 
   if (BootParamlistPtr == NULL) {
@@ -650,14 +650,21 @@ GZipPkgCheck (BootParamlist *BootParamlistPtr)
   }
 
   if (BootParamlistPtr->BootingWithGzipPkgKernel) {
-    OutAvaiLen = BootParamlistPtr->DeviceTreeLoadAddr -
-                 BootParamlistPtr->KernelLoadAddr;
+    if (BootParamlistPtr->DeviceTreeLoadAddr > BootParamlistPtr->KernelLoadAddr) {
+      OutAvaiLen = BootParamlistPtr->DeviceTreeLoadAddr -
+                   BootParamlistPtr->KernelLoadAddr;
 
-    if (OutAvaiLen > MAX_UINT32) {
-      DEBUG ((EFI_D_ERROR,
-              "Integer Overflow: the length of decompressed data = %u\n",
-      OutAvaiLen));
-      return EFI_BAD_BUFFER_SIZE;
+      if (OutAvaiLen > MAX_UINT32) {
+        DEBUG ((EFI_D_ERROR,
+                "Integer Overflow: the length of decompressed data = %u\n",
+        OutAvaiLen));
+        return EFI_BAD_BUFFER_SIZE;
+      }
+    } else {
+      DEBUG ((EFI_D_INFO,
+              "DeviceTreeLoadAddr %x is lower then KernelLoadAddr %x\n",
+              BootParamlistPtr->DeviceTreeLoadAddr,
+              BootParamlistPtr->KernelLoadAddr));
     }
 
     DEBUG ((EFI_D_INFO, "Decompressing kernel image start: %lu ms\n",
