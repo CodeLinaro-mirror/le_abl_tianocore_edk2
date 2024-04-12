@@ -417,10 +417,11 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN BootIntoRecovery,
                 CHAR16 *ReqPartition, CHAR8 *Key, BOOLEAN FlashlessBoot)
 {
   INT32 Index;
-  UINT32 Lun;
+  UINT32 Lun __attribute__ ((unused));
   CHAR16 PartitionName[MAX_GPT_NAME_SIZE];
   Slot CurSlot = GetCurrentSlotSuffix ();
-  CHAR8 LunCharMapping[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+  CHAR8 LunCharMapping[] __attribute__ ((unused))
+        = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
   CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
 
   *SysPath = AllocateZeroPool (sizeof (CHAR8) * MAX_PATH_SIZE);
@@ -508,10 +509,25 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN BootIntoRecovery,
           (Index - 1));
     }
   } else if (!AsciiStrCmp ("UFS", RootDevStr)) {
+#ifdef SUPPORT_AB_BOOT_LXC
+    if (MultiSlotBoot &&
+         (StrnCmp ((CONST CHAR16 *)L"_a", CurSlot.Suffix,
+          StrLen (CurSlot.Suffix)) == 0))
+          AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+          " root=PARTLABEL=system_a");
+    else if (MultiSlotBoot &&
+         (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
+          StrLen (CurSlot.Suffix)) == 0))
+          AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+          " root=PARTLABEL=system_b");
+    else
+          DEBUG ((EFI_D_ERROR, "Unknown system partition\n"));
+#else
     AsciiSPrint (*SysPath, MAX_PATH_SIZE, " %a=/dev/sd%c%d",
                  Key,
                  LunCharMapping[Lun],
                  GetPartitionIdxInLun (PartitionName, Lun));
+#endif
   } else {
     DEBUG ((EFI_D_ERROR, "Unknown Device type\n"));
     FreePool (*SysPath);
