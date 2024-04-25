@@ -29,7 +29,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -1590,11 +1590,10 @@ FixupScmiA2pIrq(VOID *fdt, INT32 SubNodeOffset, UINT32 Label)
   if (Status != EFI_SUCCESS)
     return Status;
 
-  /* polling based instance may not have incoming doorbells */
-  if (Irq > 0)
-    Status = UpdateIrq(fdt, SubNodeOffset, Irq, Espi);
-  else
+  Status = UpdateIrq (fdt, SubNodeOffset, Irq, Espi);
+  if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_INFO, "interrupts property not updated for scmi channel=0x%x\n", Label));
+  }
 
   return Status;
 }
