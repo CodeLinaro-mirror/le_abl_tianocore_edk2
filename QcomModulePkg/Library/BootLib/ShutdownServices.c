@@ -99,7 +99,7 @@ EFI_STATUS PreparePlatformHardware (VOID)
 VOID
 RebootDevice (UINT8 RebootReason)
 {
-  ResetDataType ResetData;
+  ResetDataType __attribute__ ((aligned (16))) ResetData;
   EFI_STATUS Status = EFI_INVALID_PARAMETER;
 
   StrnCpyS (ResetData.DataBuffer, ARRAY_SIZE (ResetData.DataBuffer),
