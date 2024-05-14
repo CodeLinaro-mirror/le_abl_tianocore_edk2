@@ -26,7 +26,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #if HIBERNATION_SUPPORT_INSECURE
@@ -68,6 +68,50 @@ typedef unsigned long sector_t;
 		(AAD_WITH_PAD_LENGTH + WRAP_PAYLOAD_LENGTH + MAC_LENGTH + \
 		NONCE_LENGTH)
 
+#if RESTORE_FDE_KEY
+#define CRYPTO_ICE_FDE_LEGACY_UFS         "UFS ICE Full Disk Encryption    "
+#define CRYPTO_ICE_FDE_LEGACY_EMMC        "SDCC ICE Full Disk Encryption   "
+#define FDE_KEY_CONTEXT                   "default_password"
+#define QSEECOM_UFS_ICE_CE_NUM            10
+#define QSEECOM_SDCC_ICE_CE_NUM           20
+#define CRYPTO_ICE_FDE_KEY_INDEX          31
+#define QSEECOM_ICE_FDE_KEY_SIZE_32_BYTE  4
+#define BOOT_DEV_MAX_LEN                  32
+
+enum qseecom_pipe_type {
+	QSEOS_PIPE_ENC = 0x1,
+	QSEOS_PIPE_ENC_XTS = 0x2,
+	QSEOS_PIPE_AUTH = 0x4,
+	QSEOS_PIPE_ENUM_FILL = 0x7FFFFFFF
+};
+
+typedef struct {
+	UINT32 flags;
+	CHAR8 key_id[32];
+	CHAR8 hash32[32];
+} __attribute__ ((packed)) QseeGenKeyReq;
+
+
+typedef struct {
+	INT32 Status;
+} __attribute__ ((packed)) QseeGenKeyRsp;
+
+
+typedef struct {
+	UINT32 ce;
+	UINT32 pipe;
+	UINT32 pipe_type;
+	UINT32 flags;
+	CHAR8 key_id[32];
+	CHAR8 hash32[32];
+} __attribute__ ((packed)) QseeSetKeyReq;
+
+
+typedef struct {
+	INT32 Status;
+} __attribute__ ((packed)) QseeSetKeyRsp;
+
+#endif
 struct s4app_time {
 	unsigned short year;
 	unsigned char  month;
