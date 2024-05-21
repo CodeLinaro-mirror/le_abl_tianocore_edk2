@@ -22,6 +22,8 @@ ifeq ($(BUILD_NATIVE_AARCH64),true)
 	export CLANG_PREFIX := /usr/bin/aarch64-redhat-linux- 
 	export TARGET_ARCHITECTURE := arm64
 	export SCMI_UPDATES_NEEDED := 1
+	export ENABLE_SAIL_FLASHING := 1
+	export ENABLE_SAIL_BOOT := 1
 endif
 
 ifndef $(BOOTLOADER_OUT)
