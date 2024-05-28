@@ -17,7 +17,7 @@
  /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -159,7 +159,7 @@ EFI_STATUS PreparePlatformHardware (EFI_KERNEL_PROTOCOL *KernIntf,
 VOID
 RebootDevice (UINT8 RebootReason)
 {
-  ResetDataType ResetData;
+  ResetDataType __attribute__ ((aligned (16))) ResetData;
   EFI_STATUS Status = EFI_INVALID_PARAMETER;
 
   WaitForFlashFinished ();
