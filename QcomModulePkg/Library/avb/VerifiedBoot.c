@@ -29,7 +29,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -775,7 +775,7 @@ LEGetImageHash (QcomAsn1x509Protocol *pEfiQcomASN1X509Protocol,
         Img == NULL ||
         ImgHash == NULL) {
         DEBUG ((EFI_D_ERROR,
-                "LEGetRSAPublicKeyInfoFromCertificate: Invalid pointer\n"));
+                "LEGetImageHash: Invalid pointer\n"));
         return EFI_INVALID_PARAMETER;
     }
 
@@ -1580,7 +1580,8 @@ DisplayVerifiedBootScreen (BootInfo *Info)
   return EFI_SUCCESS;
 }
 
-STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
+STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info, BOOLEAN HibernationResume,
+                                         BOOLEAN SetRotAndBootState)
 {
     EFI_STATUS Status = EFI_SUCCESS;
     QcomAsn1x509Protocol *QcomAsn1X509Protocal = NULL;
@@ -1601,15 +1602,17 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
     secasn1_data_type PublicExp = {NULL};
     UINT32 PaddingType = 0;
 
-    /*Load image*/
-    GUARD (VBAllocateCmdLine (Info));
     GUARD (VBCommonInit (Info));
-    GUARD (LoadImageNoAuth (Info));
+    if (!HibernationResume) {
+        /*Load image*/
+        GUARD (VBAllocateCmdLine (Info));
+        GUARD (LoadImageNoAuth (Info));
 
-    Status = IsSecureDevice (&SecureDevice);
-    if (Status != EFI_SUCCESS) {
-        DEBUG ((EFI_D_ERROR, "VB: Failed read device state: %r\n", Status));
-        return Status;
+        Status = IsSecureDevice (&SecureDevice);
+        if (Status != EFI_SUCCESS) {
+            DEBUG ((EFI_D_ERROR, "VB: Failed read device state: %r\n", Status));
+            return Status;
+        }
     }
 
     /* Locate QcomAsn1x509Protocol*/
@@ -1630,13 +1633,14 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
         return Status;
     }
 
-    if (!SecureDevice) {
-      if (!TargetBuildVariantUser () ) {
-        DEBUG ((EFI_D_INFO, "VB: verification skipped for debug builds\n"));
-        goto skip_verification;
-      }
+    if (!HibernationResume) {
+        if (!SecureDevice) {
+            if (!TargetBuildVariantUser () ) {
+                DEBUG ((EFI_D_INFO, "VB: verification skipped for debug builds\n"));
+                goto skip_verification;
+            }
+        }
     }
-
     /* Initialize Verified Boot*/
     device_info_vb_t DevInfo_vb;
     DevInfo_vb.is_unlocked = IsUnlocked ();
@@ -1647,79 +1651,87 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
         DEBUG ((EFI_D_ERROR, "VB: Error during VBDeviceInit: %r\n", Status));
         return Status;
     }
+    if (!HibernationResume) {
+        /*Calculate kernel image hash, SHA256 is used by default*/
+        HashAlgorithm = VB_SHA256;
+        HashSize = VB_SHA256_SIZE;
+        ImgSize = Info->Images[0].ImageSize;
+        ImgHash = AllocateZeroPool (HashSize);
+        if (ImgHash == NULL) {
+            DEBUG ((EFI_D_ERROR, "kernel image hash buffer allocation failed!\n"));
+            Status = EFI_OUT_OF_RESOURCES;
+            return Status;
+        }
+        Status = LEGetImageHash (QcomAsn1X509Protocal, HashAlgorithm,
+                    (UINT8 *)Info->Images[0].ImageBuffer,
+                    ImgSize, ImgHash, HashSize);
+        if (Status != EFI_SUCCESS) {
+            DEBUG ((EFI_D_ERROR, "VB: Error during VBGetImageHash: %r\n", Status));
+            return Status;
+        }
 
-    /*Calculate kernel image hash, SHA256 is used by default*/
-    HashAlgorithm = VB_SHA256;
-    HashSize = VB_SHA256_SIZE;
-    ImgSize = Info->Images[0].ImageSize;
-    ImgHash = AllocateZeroPool (HashSize);
-    if (ImgHash == NULL) {
-        DEBUG ((EFI_D_ERROR, "kernel image hash buffer allocation failed!\n"));
-        Status = EFI_OUT_OF_RESOURCES;
-        return Status;
-    }
-    Status = LEGetImageHash (QcomAsn1X509Protocal, HashAlgorithm,
-                (UINT8 *)Info->Images[0].ImageBuffer,
-                ImgSize, ImgHash, HashSize);
-    if (Status != EFI_SUCCESS) {
-        DEBUG ((EFI_D_ERROR, "VB: Error during VBGetImageHash: %r\n", Status));
-        return Status;
-    }
+        SigAddr = (UINT8 *)Info->Images[0].ImageBuffer + ImgSize;
+        SigSize = LE_BOOTIMG_SIG_SIZE;
+        Status = LEVerifyHashWithSignature (QcomAsn1X509Protocal, ImgHash,
+        HashAlgorithm, &OemCert, SigAddr, SigSize);
 
-    SigAddr = (UINT8 *)Info->Images[0].ImageBuffer + ImgSize;
-    SigSize = LE_BOOTIMG_SIG_SIZE;
-    Status = LEVerifyHashWithSignature (QcomAsn1X509Protocal, ImgHash,
-    HashAlgorithm, &OemCert, SigAddr, SigSize);
-
-    if (Status != EFI_SUCCESS) {
-        DEBUG ((EFI_D_ERROR, "VB: Error during "
-                      "LEVBVerifyHashWithSignature: %r\n", Status));
-        return Status;
-    }
-    DEBUG ((EFI_D_INFO, "VB: LoadImageAndAuthForLE complete!\n"));
+        if (Status != EFI_SUCCESS) {
+            DEBUG ((EFI_D_ERROR, "VB: Error during "
+                          "LEVBVerifyHashWithSignature: %r\n", Status));
+            return Status;
+        }
+        DEBUG ((EFI_D_INFO, "VB: LoadImageAndAuthForLE complete!\n"));
+   }
+   else
+   {
+       DEBUG ((EFI_D_INFO, "VB: LoadImageAndAuthForLE for Hibernate complete!\n"));
+   }
 
 skip_verification:
     Status = Info->VbIntf->VBIsKeymasterEnabled (Info->VbIntf,
                                                   &KeymasterEnabled);
     if (Status != EFI_SUCCESS) {
-      DEBUG ((EFI_D_ERROR, "Checking Keymaster Enablement failed %r\n",
+        DEBUG ((EFI_D_ERROR, "Checking Keymaster Enablement failed %r\n",
                                                                   Status));
-      return Status;
+        return Status;
     }
 
-    if (KeymasterEnabled) {
-      /* Set Rot & Boot State*/
-      Data.IsUnlocked = IsUnlocked ();
+    if (!SetRotAndBootState) {
+        if (KeymasterEnabled) {
+            /* Set Rot & Boot State*/
+            Data.IsUnlocked = IsUnlocked ();
 
-      Status = LEGetRSAPublicKeyInfoFromCertificate (QcomAsn1X509Protocal,
+            Status = LEGetRSAPublicKeyInfoFromCertificate (QcomAsn1X509Protocal,
                 &OemCert, &Modulus, &PublicExp, &PaddingType);
 
-      if (Modulus.data != NULL &&
-            PublicExp.data != NULL) {
-        Data.PublicKeyMod = Modulus.data;
-        Data.PublicKeyModLength = Modulus.Len;
-        Data.PublicKeyExp = PublicExp.data;
-        Data.PublicKeyExpLength = PublicExp.Len;
-
-        Status = KeyMasterSetRotForLE (&Data);
-        if (Status != EFI_SUCCESS) {
-          DEBUG ((EFI_D_ERROR, "KeyMasterSetRotForLE failed %r\n", Status));
-          return Status;
+            if (Modulus.data != NULL &&
+                PublicExp.data != NULL) {
+                Data.PublicKeyMod = Modulus.data;
+                Data.PublicKeyModLength = Modulus.Len;
+                Data.PublicKeyExp = PublicExp.data;
+                Data.PublicKeyExpLength = PublicExp.Len;
+                Status = KeyMasterSetRotForLE (&Data);
+                if (Status != EFI_SUCCESS) {
+                    DEBUG ((EFI_D_ERROR, "KeyMasterSetRotForLE failed %r\n", Status));
+                    return Status;
+                }
+            }
         }
-      }
     }
 
-    if (!IsRootCmdLineUpdated (Info)) {
-        SystemPathLen = GetSystemPath (&SystemPath,
-                                       Info->MultiSlotBoot,
-                                       Info->BootIntoRecovery,
-                                       (CHAR16 *)L"system",
-                                       (CHAR8 *)"root");
-        if (SystemPathLen == 0 ||
-            SystemPath == NULL) {
-            return EFI_LOAD_ERROR;
+    if (!HibernationResume) {
+        if (!IsRootCmdLineUpdated (Info)) {
+            SystemPathLen = GetSystemPath (&SystemPath,
+                                           Info->MultiSlotBoot,
+                                           Info->BootIntoRecovery,
+                                           (CHAR16 *)L"system",
+                                           (CHAR8 *)"root");
+            if (SystemPathLen == 0 ||
+                SystemPath == NULL) {
+                return EFI_LOAD_ERROR;
+            }
+            GUARD (AppendVBCmdLine (Info, SystemPath));
         }
-        GUARD (AppendVBCmdLine (Info, SystemPath));
     }
     return Status;
 }
@@ -1836,7 +1848,7 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume, BOOLEAN SetRotAndBo
     Status = LoadImageAndAuthVB2 (Info, HibernationResume, SetRotAndBootState);
     break;
   case AVB_LE:
-    Status = LoadImageAndAuthForLE (Info);
+    Status = LoadImageAndAuthForLE (Info, HibernationResume, SetRotAndBootState);
     break;
   default:
     DEBUG ((EFI_D_ERROR, "Unsupported AVB version %d\n", AVBVersion));
