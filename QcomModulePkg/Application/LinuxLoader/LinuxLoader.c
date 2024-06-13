@@ -28,6 +28,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "AutoGen.h"
@@ -281,7 +284,19 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
     Status = LoadImageAndAuth (&Info);
     if (Status != EFI_SUCCESS) {
       DEBUG ((EFI_D_ERROR, "LoadImageAndAuth failed: %r\n", Status));
+#ifdef ENABLE_FASTBOOT_IF_LOADAUTH_FAIL
+      if (!HandleCurrentSlotAttribute())
+        goto fastboot;
+
+      if (IsExistBootablePartition() == TRUE) {
+        RebootDevice(BootReason);
+      }
+      else {
+        goto fastboot;
+      }
+#else
       goto fastboot;
+#endif
     }
 
     BootLinux (&Info);

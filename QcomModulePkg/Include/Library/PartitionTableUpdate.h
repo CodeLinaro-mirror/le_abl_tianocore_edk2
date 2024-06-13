@@ -25,8 +25,45 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 #ifndef __PARTITION_TABLE_H__
 #define __PARTITION_TABLE_H__
 
@@ -96,6 +133,12 @@ typedef enum {
 
 #define PARTITION_ENTRY_SIZE 128
 #define PART_ATT_READONLY_OFFSET 60
+
+/* misc_boot cookie*/
+#define A_BOOT_RECOVERY 0xAA
+#define B_BOOT_RECOVERY 0xBB
+#define AB_BOOT_RECOVERY 0xAB
+
 /*
 The attributes like Priority, Active bit,
 Max retry count, Success bit and Unabootable bits will be
@@ -111,7 +154,11 @@ table in the respective position mentioned below.
 
 #define PART_ATT_PRIORITY_VAL ((UINT64)0x3 << PART_ATT_PRIORITY_BIT)
 #define PART_ATT_ACTIVE_VAL ((UINT64)0x1 << PART_ATT_ACTIVE_BIT)
+#ifdef ENABLE_FASTBOOT_IF_LOADAUTH_FAIL
+#define PART_ATT_MAX_RETRY_COUNT_VAL ((UINT64)0x3 << PART_ATT_MAX_RETRY_CNT_BIT)
+#else
 #define PART_ATT_MAX_RETRY_COUNT_VAL ((UINT64)0x7 << PART_ATT_MAX_RETRY_CNT_BIT)
+#endif
 #define PART_ATT_SUCCESSFUL_VAL ((UINT64)0x1 << PART_ATT_SUCCESS_BIT)
 #define PART_ATT_UNBOOTABLE_VAL ((UINT64)0x1 << PART_ATT_UNBOOTABLE_BIT)
 #define MAX_PRIORITY 3
@@ -238,6 +285,12 @@ EFI_STATUS
 FindBootableSlot (Slot *BootableSlot);
 BOOLEAN
 IsSuffixEmpty (Slot *CheckSlot);
+#ifdef ENABLE_FASTBOOT_IF_LOADAUTH_FAIL
+BOOLEAN
+HandleCurrentSlotAttribute (VOID);
+BOOLEAN
+IsExistBootablePartition (VOID);
+#endif
 EFI_STATUS
 SetActiveSlot (Slot *NewSlot, BOOLEAN ResetSuccessBit);
 BOOLEAN IsCurrentSlotBootable (VOID);
