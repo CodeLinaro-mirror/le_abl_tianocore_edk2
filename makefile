@@ -13,8 +13,7 @@ ifeq ($(BUILD_NATIVE_AARCH64),true)
 	export BUILD_SYSTEM_ROOT_IMAGE := false
 	export AB_RETRYCOUNT_DISABLE := true
 	export AB_FORCE_USE_SYSTEM_A := true
-	export VERIFIED_BOOT_ENABLED := true
-	export PVM_SKIP_DTBO := true
+	export VERIFIED_BOOT_ENABLED := false
 	export DISABLE_PARALLEL_DOWNLOAD_FLASH := false
 	export DYNAMIC_PARTITION_SUPPORT := 1
 	export USER_BUILD_VARIANT := false
