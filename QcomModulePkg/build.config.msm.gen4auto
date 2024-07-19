@@ -12,6 +12,8 @@ DISABLE_PARALLEL_DOWNLOAD_FLASH=1
 SCMI_UPDATES_NEEDED=1
 ENABLE_SAIL_FLASHING=1
 ENABLE_SAIL_BOOT=1
+GET_VIP_BID_INFO=1
+ETH_DT_PATCH_NEEDED=1
 
 ################################################################################
 . ${ROOT_DIR}/${ABL_SRC}/QcomModulePkg/build.config.msm.common
