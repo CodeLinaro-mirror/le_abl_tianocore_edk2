@@ -101,6 +101,7 @@ STATIC struct FstabNode DynamicFstabTable = {"/firmware/android/fstab",
 STATIC struct DisplaySplashBufferInfo splashBuf;
 STATIC UINTN splashBufSize = sizeof (splashBuf);
 STATIC RmVmGetHypResResponse *HypResources = NULL;
+STATIC INT32 ScmiChanOffset = -FDT_ERR_NOTFOUND;
 
 STATIC VOID
 PrintSplashMemInfo (CONST CHAR8 *data, INT32 datalen)
@@ -1433,35 +1434,28 @@ GetDBCapId(IN UINT32 Label, OUT UINT64 *CapId)
   return EFI_NOT_FOUND;
 }
 
-STATIC EFI_STATUS
-GetCellsCount(IN VOID *fdt, OUT UINT32 *AddressCells, OUT UINT32 *SizeCells)
+STATIC INT32
+FdtShmemNodeOffsetByPhandle (CONST VOID *fdt, UINT32 Phandle)
 {
-  CONST CHAR8 *Compatible = "mmio-sram";
-  INT32 Offset;
-  INT32 acell, scell;
+  INT32 SubNodeOffset;
 
-  Offset = fdt_node_offset_by_compatible(fdt, -1, Compatible);
-  if (Offset < 0) {
-    DEBUG ((EFI_D_ERROR, "sram dtb node not found\n"));
-    return EFI_NOT_FOUND;
+  if ((Phandle == 0) ||
+      (Phandle == -1)) {
+    return -FDT_ERR_BADPHANDLE;
   }
 
-  acell = fdt_address_cells(fdt, Offset);
-  if (acell < 0) {
-    DEBUG ((EFI_D_ERROR, "#address-cells invalid for sram dtb node\n"));
-    return EFI_NOT_FOUND;
+  if (ScmiChanOffset >= 0) {
+    for (SubNodeOffset = fdt_first_subnode (fdt, ScmiChanOffset);
+         SubNodeOffset >= 0;
+         SubNodeOffset = fdt_next_subnode (fdt, SubNodeOffset)) {
+      if (fdt_get_phandle (fdt, SubNodeOffset) == Phandle) {
+        return SubNodeOffset;
+      }
+    }
+    return -FDT_ERR_NOTFOUND;
   }
 
-  scell = fdt_size_cells(fdt, Offset);
-  if (scell < 0) {
-    DEBUG ((EFI_D_ERROR, "#size-cells invalid for sram dtb node\n"));
-    return EFI_NOT_FOUND;
-  }
-
-  *AddressCells = acell;
-  *SizeCells = scell;
-
-  return EFI_SUCCESS;
+  return fdt_node_offset_by_phandle (fdt, Phandle);
 }
 
 STATIC EFI_STATUS
@@ -1473,11 +1467,12 @@ GetChannelInfo(IN VOID *fdt, IN INT32 Offset, OUT UINT32 *Address, OUT UINT32 *S
   INT32 Len;
   UINT32 AddressCells, SizeCells;
 
-  Status = GetCellsCount(fdt, &AddressCells, &SizeCells);
-  if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "GetCellsCount failed\n"));
-    return Status;
-  }
+  /*
+   * Assuming SCMI enabled platforms are going to be 64bit machine,
+   * If this assumption is broken, the following needs to be fixed.
+   */
+  AddressCells = 2;
+  SizeCells = 2;
 
   Val = fdt_getprop(fdt, Offset, "shmem", &Len);
   if (!Val) {
@@ -1490,7 +1485,7 @@ GetChannelInfo(IN VOID *fdt, IN INT32 Offset, OUT UINT32 *Address, OUT UINT32 *S
     return EFI_NO_MAPPING;
   }
 
-  ShmemOffset = fdt_node_offset_by_phandle(fdt, fdt32_to_cpu(*Val));
+  ShmemOffset = FdtShmemNodeOffsetByPhandle (fdt, fdt32_to_cpu (*Val));
   if (ShmemOffset < 0) {
     DEBUG ((EFI_D_ERROR, "invalid shmem node offset\n"));
     return EFI_NO_MAPPING;
@@ -1659,6 +1654,11 @@ UpdateScmiInfo(VOID *fdt)
   if (FwOffset < 0) {
     DEBUG ((EFI_D_INFO, "no firmware node found...\n"));
     return Status;
+  }
+
+  ScmiChanOffset = FdtPathOffset (fdt, "scmichannels");
+  if (ScmiChanOffset < 0) {
+    DEBUG ((EFI_D_INFO, "no \'scmichannels\' alias found!Please create one\n"));
   }
 
   for (SubNodeOffset = fdt_first_subnode(fdt, FwOffset);

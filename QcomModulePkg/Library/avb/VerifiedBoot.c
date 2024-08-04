@@ -1788,6 +1788,13 @@ LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume,
     DEBUG ((EFI_D_INFO, "VB2: Authenticate complete! boot state is: %a\n",
             VbSn[Info->BootState].name));
   }
+
+  if (!IsRootCmdLineUpdated (Info) &&
+      IsABForceUseSystemA ()) {
+        DEBUG ((EFI_D_INFO, "Adding root=PARTLABEL=system_a to CmdLine\n"));
+        GUARD (AppendVBCmdLine (Info, " root=PARTLABEL=system_a"));
+  }
+
 out:
   if (Status != EFI_SUCCESS) {
     if (SlotData != NULL) {
