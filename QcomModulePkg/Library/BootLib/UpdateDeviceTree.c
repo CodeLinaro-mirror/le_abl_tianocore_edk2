@@ -102,6 +102,8 @@ STATIC struct DisplaySplashBufferInfo splashBuf;
 STATIC UINTN splashBufSize = sizeof (splashBuf);
 STATIC RmVmGetHypResResponse *HypResources = NULL;
 STATIC INT32 ScmiChanOffset = -FDT_ERR_NOTFOUND;
+STATIC UINT32 AddressCells;
+STATIC UINT32 SizeCells;
 
 STATIC VOID
 PrintSplashMemInfo (CONST CHAR8 *data, INT32 datalen)
@@ -1383,6 +1385,41 @@ UpdateFstabNode (VOID *fdt)
   return Status;
 }
 
+STATIC EFI_STATUS
+GetCellCounts (IN VOID *fdt)
+{
+  CONST CHAR8 *Compatible = "mmio-sram";
+  INT32 Offset;
+
+  if (ScmiChanOffset >= 0) {
+    Offset = ScmiChanOffset;
+  } else {
+    Offset = fdt_node_offset_by_compatible (fdt, -1, Compatible);
+  }
+
+  if (Offset < 0) {
+    DEBUG ((EFI_D_ERROR, "sram dtb node not found\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  AddressCells = fdt_address_cells (fdt, Offset);
+  if (AddressCells < 0) {
+    DEBUG ((EFI_D_ERROR, "#address-cells invalid for sram dtb node\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  SizeCells = fdt_size_cells (fdt, Offset);
+  if (SizeCells < 0) {
+    DEBUG ((EFI_D_ERROR, "#size-cells invalid for sram dtb node\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  DEBUG ((EFI_D_INFO, "#address-cells=%d, #size-cells=%d\n", AddressCells,
+          SizeCells));
+
+  return EFI_SUCCESS;
+}
+
 EFI_STATUS
 FetchHypResources(VOID)
 {
@@ -1465,14 +1502,6 @@ GetChannelInfo(IN VOID *fdt, IN INT32 Offset, OUT UINT32 *Address, OUT UINT32 *S
   const fdt32_t *Val;
   INT32 ShmemOffset;
   INT32 Len;
-  UINT32 AddressCells, SizeCells;
-
-  /*
-   * Assuming SCMI enabled platforms are going to be 64bit machine,
-   * If this assumption is broken, the following needs to be fixed.
-   */
-  AddressCells = 2;
-  SizeCells = 2;
 
   Val = fdt_getprop(fdt, Offset, "shmem", &Len);
   if (!Val) {
@@ -1659,6 +1688,12 @@ UpdateScmiInfo(VOID *fdt)
   ScmiChanOffset = FdtPathOffset (fdt, "scmichannels");
   if (ScmiChanOffset < 0) {
     DEBUG ((EFI_D_INFO, "no \'scmichannels\' alias found!Please create one\n"));
+  }
+
+  Status = GetCellCounts (fdt);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Failed to get cell counts\n"));
+    return Status;
   }
 
   for (SubNodeOffset = fdt_first_subnode(fdt, FwOffset);
