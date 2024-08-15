@@ -32,7 +32,7 @@
  /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -76,6 +76,8 @@
 #include <Protocol/EFIScmModeSwitch.h>
 #include <libufdt_sysdeps.h>
 #include <Protocol/EFIKernelInterface.h>
+#include <Protocol/EFIShadowRegComm.h>
+#include <Protocol/EFIIPCC.h>
 
 #include "AutoGen.h"
 #include "BootImage.h"
@@ -89,6 +91,123 @@
 STATIC QCOM_SCM_MODE_SWITCH_PROTOCOL *pQcomScmModeSwitchProtocol = NULL;
 STATIC BOOLEAN BootDevImage;
 STATIC BOOLEAN RecoveryHasNoKernel = FALSE;
+
+#ifdef GET_VIP_BID_INFO
+
+#define BIDMAGIC 0x53534150444942
+#define INVALBIDMAGIC 0x4c494146444942
+
+typedef struct BidTable {
+  CHAR8 MCUBoardID;
+  CHAR8 MainBoardId;
+  CHAR8 S1SoCBoardID;
+  CHAR8 S1SiPBoardID0;
+  CHAR8 S1SiPBoardID1;
+  CHAR8 S2SoCBoardID;
+  CHAR8 S2SiPBoardID0;
+  CHAR8 S2SiPBoardID1;
+  CHAR8 S3BoardID;
+  CHAR8 S4BoardID;
+  CHAR8 CANBoardID;
+  CHAR8 ENETBoardID;
+  CHAR8 FPGABoardID;
+  CHAR8 DisplayBoardID;
+  CHAR8 S2DisplayBoardID;
+  CHAR8 CameraBoardID;
+  CHAR8 WLANBoardID;
+  CHAR8 PCIEBoardID;
+  CHAR8 AudioBoardID;
+  CHAR8 SailENETBoardID;
+  CHAR8 MCUENETBoardID;
+  CHAR8 SensorBoardID;
+} BidTableInfo;
+
+STATIC EFI_STATUS
+InitilizeIpccComm (VOID)
+{
+  INT32 Ret;
+  EFI_STATUS Status = EFI_FAILURE;
+  IPCCHandle Smp2pIntrHandle = NULL;
+  EfiIPCCProtocol *IpccProtocol = NULL;
+
+  Status = gBS->LocateProtocol (&gEfiIpccProtocolGuid, NULL,
+                                                       (VOID**)&IpccProtocol);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Error locating IPCC protocol\n"));
+    return Status;
+  }
+  Ret = IpccProtocol->IpccAttach (&Smp2pIntrHandle, IPCC_P_COMPUTEL1);
+  if (Ret != 0) {
+    DEBUG ((EFI_D_ERROR, "IPCC Attach failed:%d\n", Ret));
+    return EFI_FAILURE;
+  }
+  Ret = IpccProtocol->IpccTrigger (Smp2pIntrHandle, IPCC_C_SAIL0, 0x1F, 0x1F);
+  if (Ret != 0) {
+    DEBUG ((EFI_D_ERROR, "IPCC Trigger failed:%d\n", Ret));
+    return EFI_FAILURE;
+  }
+  return Status;
+}
+
+STATIC struct BidTable *
+GetBidInfoFromSail (VOID)
+{
+  EFI_STATUS Status = EFI_FAILURE;
+  struct BidTable *BidInfo = NULL;
+  EfiShadowRegCommProtocol *ShadowRegCommProt;
+  VOID *Address = AllocateZeroPool (sizeof (UINT64));
+  UINT64 **Magic = (UINT64**)Address;
+
+  Status = gBS->LocateProtocol (&gEfiShadowRegCommProtocolGuid, NULL,
+                                                (VOID **)&ShadowRegCommProt);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR,
+               "Error locating Shadow Register Communication protocol\n"));
+    return NULL;
+  }
+
+  Status = ShadowRegCommProt->ShadowRegCommInit ();
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR,
+               "Failed to Initialize Shadow Register Comm Protocol\n"));
+    return NULL;
+  }
+
+  Status = ShadowRegCommProt->ShadowRegGetAddr (0, Address);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Failed to Get the Address\n"));
+    return NULL;
+  }
+
+  if (**Magic == BIDMAGIC) {
+    DEBUG ((EFI_D_VERBOSE, "BID Information Available\n"));
+  } else if (**Magic == INVALBIDMAGIC) {
+    DEBUG ((EFI_D_ERROR, "BID Information Not Available\n"));
+    return NULL;
+  } else {
+    DEBUG ((EFI_D_ERROR, "Invalid Magic:0x%llx\n", Magic));
+    return NULL;
+  }
+
+  BidInfo = (struct BidTable *)++(*Magic);
+  return BidInfo;
+}
+
+STATIC struct BidTable *
+GetBidInfo (BootParamlist *BootParamlistPtr)
+{
+  EFI_STATUS Status = EFI_FAILURE;
+
+  Status = InitilizeIpccComm ();
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR,
+               "Failed to initialize IPCC communication:%d\n", Status));
+    return NULL;
+  }
+
+  return GetBidInfoFromSail ();
+}
+#endif /* GET_VIP_BID_INFO */
 
 STATIC VOID
 SetLinuxBootCpu (UINT32 BootCpu)
