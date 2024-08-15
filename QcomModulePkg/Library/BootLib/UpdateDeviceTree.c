@@ -1716,3 +1716,160 @@ UpdateScmiInfo(VOID *fdt)
 
   return Status;
 }
+
+#ifdef ETH_DT_PATCH_NEEDED
+/*
+ * Update the reg value property for the ETH PHY
+ */
+STATIC EFI_STATUS
+UpdateEthRegVal (VOID *fdt, INT32 SubNodeOffset, UINT32 RegVal)
+{
+  EFI_STATUS Status = EFI_FAILURE;
+  UINT32 *Prop = NULL;
+  INT32 PropLen = 0;
+  INT32 Ret = 0;
+
+  Prop = (UINT32 *)fdt_getprop (fdt, SubNodeOffset, "reg", &PropLen);
+  if (!Prop) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Unable to find the reg property\n"));
+    return Status;
+  }
+  Prop[0] = cpu_to_fdt32 (RegVal);
+
+  Ret = fdt_setprop_inplace (fdt, SubNodeOffset, "reg", Prop, PropLen);
+  if (Ret < 0) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Could not update register value\n"));
+    return EFI_NO_MAPPING;
+  }
+
+  return EFI_SUCCESS;
+}
+
+/*
+ * Update the compatible field
+ */
+STATIC EFI_STATUS
+UpdateEthCompVal (VOID *fdt, INT32 SubNodeOffset, CONST CHAR8* Compatible)
+{
+  EFI_STATUS Status = EFI_FAILURE;
+  INT32 PropLen = 0;
+  INT32 Ret = 0;
+  CONST struct fdt_property *Prop = NULL;
+
+  Prop = fdt_get_property (fdt, SubNodeOffset, "compatible", &PropLen);
+  if (!Prop) {
+    DEBUG ((EFI_D_ERROR, "Could not find compatible\n"));
+    Status = EFI_NOT_FOUND;
+  } else {
+    DEBUG ((EFI_D_VERBOSE, "Compatible:%a\n", Prop->data));
+  }
+
+  Ret = fdt_setprop_inplace (fdt, SubNodeOffset, "compatible",
+                              Compatible, AsciiStrLen (Compatible) + 1);
+  if (!Ret) {
+    Status = EFI_SUCCESS;
+    DEBUG ((EFI_D_VERBOSE, "Updated compatible property: %a\n", Compatible));
+  } else {
+    DEBUG ((EFI_D_ERROR, "Couldn't update compatible\n"));
+    return EFI_FAILURE;
+  }
+
+  Prop = fdt_get_property (fdt, SubNodeOffset, "compatible", &PropLen);
+  if (!Prop) {
+    DEBUG ((EFI_D_ERROR, "Could not find compatible\n"));
+    Status = EFI_NOT_FOUND;
+  } else {
+    DEBUG ((EFI_D_VERBOSE, "Updated Compatible:%a\n", Prop->data));
+  }
+  return Status;
+}
+
+EFI_STATUS
+UpdateEthBid (VOID *fdt, CHAR8 EthBid)
+{
+  EFI_STATUS Status = EFI_FAILURE;
+  INT32 FwOffset;
+  INT32 SubNodeOffset;
+  UINT32 *Prop = NULL;
+  INT32 PropLen = 0;
+  UINT32 RegVal;
+  INTN Ret;
+  CONST CHAR8 *EthernetDtNode = "/soc/ethernet/mdio";
+  CONST CHAR8 *MarvellComp = "ethernet-phy-id0141.0dd4";
+  CONST CHAR8 *AqrComp = "ethernet-phy-id31c3.1c33";
+  BOOLEAN MarvellPhy = FALSE;
+  BOOLEAN AQRPhy = FALSE;
+  UINT32 AQRReg = 0x0;
+
+  /*
+   *  +----------+--------------+
+   *  | BID      |  PHY Type    |
+   *  +----------|--------------+
+   *  | 1,2      |   Marvell    |
+   *  +----------|--------------+
+   *  | 3,6      |     AQR      |
+   *  +----------+--------------+
+   */
+  if ((EthBid == 1) ||
+      (EthBid == 2)) {
+    MarvellPhy = TRUE;
+    DEBUG ((EFI_D_VERBOSE, "Marvell PHY found:%d\n", MarvellPhy));
+  } else if ((EthBid == 3) ||
+             (EthBid == 6)) {
+    AQRPhy = TRUE;
+    DEBUG ((EFI_D_VERBOSE, "AQR PHY found:%d\n", AQRPhy));
+  }
+
+  /* Get offset of the Ethernet mdio node */
+  FwOffset = FdtPathOffset (fdt, EthernetDtNode);
+  if (FwOffset < 0) {
+    DEBUG ((EFI_D_ERROR, "Ethernet MDIO node not found\n"));
+    return EFI_FAILURE;
+  }
+
+  for (SubNodeOffset = fdt_first_subnode (fdt, FwOffset);
+       SubNodeOffset >= 0;
+       SubNodeOffset = fdt_next_subnode (fdt, SubNodeOffset)) {
+    Prop = (UINT32 *)fdt_getprop (fdt, SubNodeOffset, "reg", &PropLen);
+    if (!Prop) {
+      DEBUG ((EFI_D_ERROR, "ERROR: Unable to find the reg property\n"));
+      return EFI_FAILURE;
+    }
+
+    RegVal = fdt32_to_cpu (*Prop);
+    if (RegVal == 0x8) {
+      if (AQRPhy &&
+          !fdt_node_check_compatible (fdt, SubNodeOffset, MarvellComp)) {
+        Status = UpdateEthCompVal (fdt, SubNodeOffset, AqrComp);
+        if (Status != EFI_SUCCESS) {
+          DEBUG ((EFI_D_ERROR,
+                             "ERROR: Unable to update compatible property\n"));
+        }
+      }
+      continue;
+    }
+
+    if (AQRPhy &&
+        !fdt_node_check_compatible (fdt, SubNodeOffset, MarvellComp)) {
+      Status = UpdateEthCompVal (fdt, SubNodeOffset, AqrComp);
+      if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "ERROR: Unable to update compatible property\n"));
+        return Status;
+      }
+
+      Status = UpdateEthRegVal (fdt, SubNodeOffset, AQRReg);
+      if (Status == EFI_SUCCESS) {
+        Ret = fdt_set_name (fdt, SubNodeOffset, "phy@0");
+        if (Ret != 0) {
+          DEBUG ((EFI_D_ERROR, "ERROR: Failed to rename phy node\n"));
+        }
+        break;
+      } else {
+        DEBUG ((EFI_D_ERROR, "ERROR: Failed to update phy reg property\n"));
+        return EFI_FAILURE;
+      }
+    }
+  }
+  return EFI_SUCCESS;
+}
+#endif /* ETH_DT_PATCH_NEEDED */

@@ -209,6 +209,53 @@ GetBidInfo (BootParamlist *BootParamlistPtr)
 }
 #endif /* GET_VIP_BID_INFO */
 
+#ifdef ETH_DT_PATCH_NEEDED
+STATIC EFI_STATUS
+UpdateEthBidInfo (BootParamlist *BootParamlistPtr)
+{
+  CHAR8 EthBid = 0;
+  EFI_STATUS Status = EFI_FAILURE;
+  struct BidTable *BidInfo = GetBidInfo (BootParamlistPtr);
+  if (BidInfo == NULL) {
+    DEBUG ((EFI_D_ERROR,
+               "Failed to get the BID information from SAIL\n"));
+    return EFI_FAILURE;
+  }
+
+  EthBid = BidInfo->ENETBoardID;
+
+  /*
+   * We support operations only on PHY ETH Type BID.
+   *
+   *  +----------+--------------+
+   *  | BID      |  ETH Type    |
+   *  +----------|--------------+
+   *  | 1,2,3,6  |    PHY       |
+   *  +----------|--------------+
+   *  | 4,5      |    Switch    |
+   *  +----------+--------------+
+   *
+   */
+  if ((EthBid == 1) ||
+      (EthBid == 2) ||
+      (EthBid == 3) ||
+      (EthBid == 6)) {
+    DEBUG ((EFI_D_INFO, "Ethernet BID:%d found\n", EthBid));
+    Status = UpdateEthBid ((VOID *)BootParamlistPtr->DeviceTreeLoadAddr,
+                   EthBid);
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_INFO,
+               "Failed to update Device Tree with BID:%d\n", Status));
+      return Status;
+    }
+  } else {
+    DEBUG ((EFI_D_ERROR, "Invalid BID:%d found\n", EthBid));
+    return EFI_UNSUPPORTED;
+  }
+  return Status;
+}
+#endif /* ETH_DT_PATCH_NEEDED */
+
 STATIC VOID
 SetLinuxBootCpu (UINT32 BootCpu)
 {
@@ -1518,6 +1565,14 @@ BootLinux (BootInfo *Info)
   Status = UpdateScmiInfo((VOID *)BootParamlistPtr.DeviceTreeLoadAddr);
   if (Status != EFI_SUCCESS) {
        return Status;
+  }
+#endif
+
+#ifdef ETH_DT_PATCH_NEEDED
+  Status = UpdateEthBidInfo (&BootParamlistPtr);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR,
+               "Failed to Update Ethernet BID Information:%d\n", Status));
   }
 #endif
 
