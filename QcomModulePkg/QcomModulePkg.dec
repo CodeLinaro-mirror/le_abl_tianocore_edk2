@@ -27,6 +27,11 @@
 # * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #*/
 
+#/*
+# * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+# * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# * SPDX-License-Identifier: BSD-3-Clause-Clear
+# */
 
 [Defines]
   DEC_SPECIFICATION              = 0x00010005
@@ -161,3 +166,4 @@
   gQcomTokenSpaceGuid.AllowEio|FALSE|BOOLEAN|0x00015008
   gQcomTokenSpaceGuid.EnableBatteryVoltageCheck|TRUE|BOOLEAN|0x00015009
   gQcomTokenSpaceGuid.RamdiskEndAddress32|0x03C00000|UINT32|0x0001500A
+  gQcomTokenSpaceGuid.PcdDeviceInfoVirtBaseAddress|0x21ffff000|UINT64|0x0001500B
