@@ -27,6 +27,11 @@
 # * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #*/
 
+#/*
+# * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+# * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# * SPDX-License-Identifier: BSD-3-Clause-Clear
+# */
 
 [Defines]
 	INF_VERSION                    = 0x00010005
@@ -72,6 +77,7 @@
 	NandMultiSlotBoot.c
 	IntegrityIMA.c
 	ThreadStack.c
+	DeviceInfoVirt.c
 
 [Packages]
 	ArmPkg/ArmPkg.dec
@@ -168,6 +174,7 @@
 	gQcomTokenSpaceGuid.EnableDisplayMenu
 	gQcomTokenSpaceGuid.KernelLoadAddress32
 	gQcomTokenSpaceGuid.EnableMdtpSupport
+	gQcomTokenSpaceGuid.PcdDeviceInfoVirtBaseAddress
 
 [Depex]
 	TRUE

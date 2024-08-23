@@ -37,6 +37,7 @@
  */
 
 #include <Library/DeviceInfo.h>
+#include <Library/DeviceInfoVirt.h>
 #include <Library/DrawUI.h>
 #include <Library/PartitionTableUpdate.h>
 #include <Library/ShutdownServices.h>
@@ -1008,6 +1009,8 @@ skip_FfbmStr:
   if (Status != EFI_SUCCESS) {
        return Status;
   }
+
+  StoreDeviceInfoVirt();
 
   FreeVerifiedBootResource (Info);
 
