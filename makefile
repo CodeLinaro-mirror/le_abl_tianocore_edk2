@@ -27,6 +27,7 @@ ifeq ($(BUILD_NATIVE_AARCH64),true)
 	export ENABLE_SAIL_BOOT := 1
 	export GET_VIP_BID_INFO := 1
 	export ETH_DT_PATCH_NEEDED := 1
+	export TARGET_BOARD_TYPE_AUTO := 1
 endif
 
 ifndef $(BOOTLOADER_OUT)
