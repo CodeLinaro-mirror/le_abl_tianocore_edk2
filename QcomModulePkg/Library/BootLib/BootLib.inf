@@ -165,6 +165,8 @@
 	gEfiKernelProtocolGuid
 	gEfiDisplayPowerStateProtocolGuid
 	gEfiMailboxProtocolGuid
+	gEfiIpccProtocolGuid
+	gEfiShadowRegCommProtocolGuid
 
 [FixedPcd]
 	gArmTokenSpaceGuid.PcdSystemMemoryBase

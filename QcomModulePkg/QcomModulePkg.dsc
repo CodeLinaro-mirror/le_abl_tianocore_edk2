@@ -211,6 +211,12 @@
   !if $(TARGET_LINUX_BOOT_CPU_ID)
       GCC:*_*_*_CC_FLAGS = -DTARGET_LINUX_BOOT_CPU_ID=$(TARGET_LINUX_BOOT_CPU_ID)
   !endif
+  !if $(GET_VIP_BID_INFO) == 1
+      GCC:*_*_*_CC_FLAGS = -DGET_VIP_BID_INFO
+  !endif
+  !if $(ETH_DT_PATCH_NEEDED) == 1
+      GCC:*_*_*_CC_FLAGS = -DGET_VIP_BID_INFO -DETH_DT_PATCH_NEEDED
+  !endif
 
 [PcdsFixedAtBuild.common]
 

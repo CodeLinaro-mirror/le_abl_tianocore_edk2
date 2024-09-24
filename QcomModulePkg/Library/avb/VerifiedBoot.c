@@ -1756,7 +1756,14 @@ LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume,
     Info->BootState = ORANGE;
   } else {
     if (UserData->IsUserKey) {
+#ifndef TARGET_BOARD_TYPE_AUTO
       Info->BootState = YELLOW;
+#else
+      DEBUG ((EFI_D_ERROR,
+        "Using user's key is disallowed for automotive target!\n"));
+      Status = EFI_UNSUPPORTED;
+      goto out;
+#endif
     } else {
       Info->BootState = GREEN;
     }
