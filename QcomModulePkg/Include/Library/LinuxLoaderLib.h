@@ -191,4 +191,8 @@ WriteBlockToPartition (EFI_BLOCK_IO_PROTOCOL *BlockIo,
                    IN UINT64 Offset,
                    IN UINT64 Size,
                    IN VOID *Image);
+
+EFI_STATUS DetectSDCardAndMountFAT(VOID);
+
+BOOLEAN IsSdCardPresent(VOID);
 #endif
