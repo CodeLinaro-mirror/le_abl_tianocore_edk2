@@ -51,6 +51,7 @@
 STATIC QCOM_SCM_MODE_SWITCH_PROTOCOL *pQcomScmModeSwitchProtocol = NULL;
 STATIC BOOLEAN BootDevImage;
 STATIC BOOLEAN IsVmComputed = FALSE;
+STATIC BOOLEAN IsSdCardDetected = FALSE;
 
 /* To set load addresses, callers should make sure to initialize the
  * BootParamlistPtr before calling this function */
@@ -1438,6 +1439,91 @@ CheckImageHeader (VOID *ImageHdrBuffer,
   DEBUG ((EFI_D_VERBOSE, "Image Header version     : 0x%x\n", HeaderVersion));
 
   return Status;
+}
+
+BOOLEAN IsSdCardPresent(VOID)
+{
+  return IsSdCardDetected;
+}
+
+EFI_STATUS DetectSDCardAndMountFAT(VOID)
+{
+  EFI_STATUS Status;
+  PartiSelectFilter HandleFilter;
+  HandleInfo HandleInfoList[2];
+  UINT32 MaxHandles = 2, BlkIOAttrib = 0, i =0, detectedIndex = 0;
+  EFI_DEVICE_PATH_PROTOCOL *DevicePath;
+  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *Fs;
+  EFI_DEVICE_PATH_PROTOCOL *Node;
+  HARDDRIVE_DEVICE_PATH    *HdNode;
+
+  BlkIOAttrib = BLK_IO_SEL_PARTITIONED_MBR;
+  BlkIOAttrib |= BLK_IO_SEL_MEDIA_TYPE_REMOVABLE;
+  BlkIOAttrib |= BLK_IO_SEL_MATCH_ROOT_DEVICE;
+
+  HandleFilter.RootDeviceType = &gEfiSdRemovableGuid;
+
+  Status =
+      GetBlkIOHandles (BlkIOAttrib, &HandleFilter, HandleInfoList, &MaxHandles);
+
+  if (Status == EFI_SUCCESS) {
+    if (MaxHandles == 0) {
+          DEBUG ((EFI_D_INFO, "SD card is not present\n"));
+      return EFI_NO_MEDIA;
+    }
+  }
+
+  /* Find the handle of SD card based on device path. */
+  for (i =0; i < MaxHandles; i++) {
+    Status = gBS->HandleProtocol(HandleInfoList[i].Handle, &gEfiDevicePathProtocolGuid, (VOID**)&DevicePath);
+    if (EFI_ERROR(Status)) {
+        DEBUG ((EFI_D_ERROR, "Unable to get device path protocol %r\n", Status));
+        return Status;
+    }
+    /* Iterate through the device path nodes */
+    for (Node = DevicePath; !IsDevicePathEnd(Node); Node = NextDevicePathNode(Node)) {
+      /* Check if the node is a Hard Drive Device Path */
+      if (DevicePathType(Node) == MEDIA_DEVICE_PATH &&
+            DevicePathSubType(Node) == MEDIA_HARDDRIVE_DP ) {
+            HdNode = (HARDDRIVE_DEVICE_PATH *)Node;
+            /* Convert the device path to a string */
+            CHAR16 *DevicePathStr = ConvertDevicePathToText(DevicePath, TRUE, TRUE);
+            if (DevicePathStr != NULL) {
+              DEBUG ((EFI_D_INFO, "DevicePath string for SD card is:%s\n", DevicePathStr));
+              FreePool(DevicePathStr);
+          }
+          IsSdCardDetected = TRUE;
+          detectedIndex = i;
+          break;
+        }
+     }
+  }
+
+  if (!IsSdCardDetected) {
+     DEBUG ((EFI_D_ERROR, "Failed to find SD card handle\n"));
+     return Status;
+  }
+
+  /* Mount FAT FS of SD card */
+  Status = gBS->HandleProtocol(HandleInfoList[detectedIndex].Handle,
+                                &gEfiSimpleFileSystemProtocolGuid, (VOID **)&Fs);
+  if (Status == EFI_SUCCESS)
+  {
+    DEBUG ((EFI_D_INFO, "[DetectSDAndMount] File System Already mounted %d on :%d\n", Status, detectedIndex));
+    return Status;
+  }
+
+  if (Status != EFI_SUCCESS)
+  {
+    DEBUG ((EFI_D_INFO, "[MountFat] Connecting controller\n"));
+    Status = gBS->ConnectController (HandleInfoList[detectedIndex].Handle, NULL, NULL, TRUE);
+    if (EFI_ERROR(Status))
+      DEBUG ((EFI_D_ERROR, "[MountFat] Failed to connect controller\n"));
+  }
+
+  DEBUG ((EFI_D_INFO, "Detected SD card and Mounted FS succesfully\n"));
+
+  return EFI_SUCCESS;
 }
 
 /**

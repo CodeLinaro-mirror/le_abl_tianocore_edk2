@@ -268,6 +268,82 @@ ToLower (CHAR8 *Str)
   }
 }
 
+EFI_STATUS
+LoadImageFromFatPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname)
+{
+  EFI_STATUS Status = EFI_NOT_FOUND;
+  EFI_FILE_HANDLE                   RootFileHandle = NULL;
+  EFI_FILE_HANDLE                   FileHandle = NULL;
+  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL   *Fs = NULL;
+  UINT32                            MaxHandles = 2;
+  HandleInfo                        HandleInfoList[2];
+  PartiSelectFilter                 HandleFilter;
+  UINT32                            BlkIOAttrib;
+  UINTN Size = 0;
+
+  DEBUG ((EFI_D_INFO, "[LoadFileFromFAT] Image Load requested for partition :%s\n", Pname));
+
+  BlkIOAttrib = BLK_IO_SEL_PARTITIONED_MBR;
+  BlkIOAttrib |= BLK_IO_SEL_MEDIA_TYPE_REMOVABLE;
+  BlkIOAttrib |= BLK_IO_SEL_MATCH_ROOT_DEVICE;
+
+  HandleFilter.RootDeviceType = &gEfiSdRemovableGuid;;
+
+  DEBUG ((DEBUG_INFO, "[LoadFileFromFAT] Loading Image Start from SD: %u ms for %s\n",
+          GetTimerCountms (), Pname));
+
+  Status = GetBlkIOHandles(BlkIOAttrib, &HandleFilter, HandleInfoList, &MaxHandles);
+
+  if (Status != EFI_SUCCESS) {
+   DEBUG ((DEBUG_INFO, "Failed to get blkIO Handles\n"));
+   return Status;
+  }
+
+  if (MaxHandles == 0)
+    return EFI_NOT_FOUND;
+
+  Status = gBS->HandleProtocol (HandleInfoList[1].Handle,
+                                &gEfiSimpleFileSystemProtocolGuid, (VOID **)&Fs);
+  if (Status != EFI_SUCCESS)
+  {
+    DEBUG ((DEBUG_ERROR, "[LoadFileFromFAT] Unable to find filesystrem handle :%d\n", Status));
+    return Status;
+  }
+
+  /* Open the root directory of the volume */
+  Status = Fs->OpenVolume (Fs, &RootFileHandle);
+
+  if ((Status != EFI_SUCCESS) || (RootFileHandle == NULL)) {
+    DEBUG ((DEBUG_ERROR, "[LoadFileFromFAT]Failed to open Volume :%d\n", Status));
+    return Status;
+  }
+
+  Status = RootFileHandle->Open (RootFileHandle, &FileHandle, (CHAR16*)L"boot.img",
+                                 (UINT64)EFI_FILE_MODE_READ, 0);
+
+  if ((Status != EFI_SUCCESS) || (FileHandle == NULL)) {
+    DEBUG ((DEBUG_ERROR, "Failed to open root file handle Status :%d\n", Status));
+    return Status;
+  }
+
+  Size = ROUND_TO_PAGE(*ImageSize, (HandleInfoList[1].BlkIo->Media->BlockSize - 1));
+
+  Status = FileHandle->Read (FileHandle, &Size, ImageBuffer);
+
+  FileHandle->Close(FileHandle);
+
+  if (Status != EFI_SUCCESS)
+  {
+    DEBUG ((EFI_D_WARN, "[LoadFileFromFAT] failed to Read File Status :%d\r\n", Status));
+    return Status;
+  }
+
+  DEBUG ((DEBUG_INFO, "[LoadFileFromFAT] Loading Image Done : %lu ms\n", GetTimerCountms ()));
+  DEBUG ((DEBUG_INFO, "[LoadFileFromFAT] SD Total Image Read size : %d Bytes\n", *ImageSize));
+
+  return Status;
+}
+
 /* Load image from partition to buffer */
 EFI_STATUS
 LoadImageFromPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname)
@@ -278,6 +354,15 @@ LoadImageFromPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname)
   HandleInfo HandleInfoList[1];
   STATIC UINT32 MaxHandles;
   STATIC UINT32 BlkIOAttrib = 0;
+
+  if (IsSdCardPresent() && StrStr(Pname, L"boot"))
+  {
+     Status = LoadImageFromFatPartition(ImageBuffer, ImageSize, Pname);
+     if (Status == EFI_SUCCESS)
+         return Status;
+
+     DEBUG ((DEBUG_INFO, "Falling back to loading boot.img from primary storage\n"));
+  }
 
   BlkIOAttrib = BLK_IO_SEL_PARTITIONED_MBR;
   BlkIOAttrib |= BLK_IO_SEL_PARTITIONED_GPT;
