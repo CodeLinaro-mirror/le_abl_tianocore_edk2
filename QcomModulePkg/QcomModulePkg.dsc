@@ -141,6 +141,15 @@
   !if $(PVM_SKIP_DTBO)
       GCC:*_*_*_CC_FLAGS = -DPVM_SKIP_DTBO
   !endif
+
+  !ifdef $(FORCE_NO_PIE)
+  GCC:*_*_*_ARCHCC_FLAGS  =  -fno-PIE
+  GCC:*_*_*_DLINK_FLAGS = -Wl,--no-pie
+  !endif
+
+  !if $(FORCE_NO_PIE)
+      GCC:*_*_*_CC_FLAGS = -DFORCE_NO_PIE
+  !endif
   !if $(SUPPORT_AB_BOOT_LXC)
       GCC:*_*_*_CC_FLAGS = -DSUPPORT_AB_BOOT_LXC
   !endif
