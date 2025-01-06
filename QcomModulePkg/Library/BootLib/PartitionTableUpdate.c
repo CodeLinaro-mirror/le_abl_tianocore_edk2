@@ -28,9 +28,9 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -74,6 +74,8 @@
 #include <Uefi.h>
 #include <Uefi/UefiSpec.h>
 #include <VerifiedBoot.h>
+#include <Protocol/EFIRecoveryInfo.h>
+#include "RecoveryInfo.h"
 
 STATIC BOOLEAN FlashingGpt;
 STATIC BOOLEAN ParseSecondaryGpt;
@@ -774,11 +776,20 @@ PartitionHasMultiSlot (CONST CHAR16 *Pname)
   for (i = 0; i < PartitionCount; i++) {
     if (!(StrnCmp (PtnEntries[i].PartEntry.PartitionName, Pname, Len))) {
       if (PtnEntries[i].PartEntry.PartitionName[Len] == L'_' &&
-          (PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'a' ||
-           PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'b'))
-        if (++SlotCount > MIN_SLOTS) {
+          (PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'a')) {
+        SlotCount++;
+      } else if (PtnEntries[i].PartEntry.PartitionName[Len] == L'_' &&
+                 (PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'b')) {
+        if (IsRecoveryInfo ()) {
+          DEBUG (( EFI_D_INFO, "Multislot because RecoveryInfo Detected\n"));
           return TRUE;
         }
+        SlotCount++;
+      }
+    }
+
+    if (SlotCount > MIN_SLOTS) {
+      return TRUE;
     }
   }
   return FALSE;
@@ -1393,6 +1404,12 @@ GetActiveSlot (Slot *ActiveSlot)
   if (ActiveSlot == NULL) {
     DEBUG ((EFI_D_ERROR, "GetActiveSlot: bad parameter\n"));
     return EFI_INVALID_PARAMETER;
+  }
+
+  if ((IsSuffixEmpty (ActiveSlot) == TRUE) &&
+      (IsRecoveryInfo ())) {
+    Status = RI_GetActiveSlot (ActiveSlot);
+    return Status;
   }
 
   for (UINTN SlotIndex = 0; SlotIndex < ARRAY_SIZE (Slots); SlotIndex++) {
