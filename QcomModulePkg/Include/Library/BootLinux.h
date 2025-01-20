@@ -241,6 +241,7 @@ typedef struct BootLinuxParamlist {
   CHAR8 *FinalCmdLine;
   CHAR8 *FinalBootConfig;
   CHAR8 *CmdLine;
+  CHAR8 *ExtraCmdLine;
   BOOLEAN BootingWith32BitKernel;
   BOOLEAN BootingWithPatchedKernel;
   BOOLEAN BootingWithGzipPkgKernel;
