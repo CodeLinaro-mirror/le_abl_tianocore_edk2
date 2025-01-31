@@ -26,6 +26,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "VerifiedBoot.h"
 #include "BootLinux.h"
 #include "KeymasterClient.h"
@@ -35,6 +41,9 @@
 #include <Library/LEOEMCertificate.h>
 #include <Library/HypervisorMvCalls.h>
 #include <Library/NandMultiSlotBoot.h>
+
+#include <Protocol/scm_sip_interface.h>
+#include <Protocol/EFIScm.h>
 
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
@@ -814,56 +823,6 @@ static VOID AddRequestedPartition (CHAR8 **RequestedPartititon, UINT32 Index)
   }
 }
 
-STATIC VOID
-ComputeVbMetaDigest (AvbSlotVerifyData* SlotData, CHAR8* Digest) {
-  size_t Index;
-  AvbSHA256Ctx Ctx;
-  avb_sha256_init (&Ctx);
-  for (Index = 0; Index < SlotData->num_vbmeta_images; Index++) {
-    avb_sha256_update (&Ctx,
-                SlotData->vbmeta_images[Index].vbmeta_data,
-                SlotData->vbmeta_images[Index].vbmeta_size);
-  }
-  avb_memcpy (Digest, avb_sha256_final(&Ctx), AVB_SHA256_DIGEST_SIZE);
-}
-
-static UINT32 ParseBootSecurityLevel (CONST CHAR8 *BootSecurityLevel,
-                                      size_t BootSecurityLevelSize)
-{
-  UINT32 PatchLevelDate = 0;
-  UINT32 PatchLevelMonth = 0;
-  UINT32 PatchLevelYear = 0;
-  UINT32 SeparatorCount = 0;
-  UINT32 Count = 0;
-
-  /*Parse the value of security patch as per YYYY-MM-DD format*/
-  while (Count < BootSecurityLevelSize) {
-    if (BootSecurityLevel[Count] == '-') {
-      SeparatorCount++;
-    }
-    else if (SeparatorCount == 2) {
-      PatchLevelDate *= 10;
-      PatchLevelDate += (BootSecurityLevel[Count] - '0');
-    }
-    else if (SeparatorCount == 1) {
-      PatchLevelMonth *= 10;
-      PatchLevelMonth += (BootSecurityLevel[Count] - '0');
-    }
-    else if (SeparatorCount == 0) {
-      PatchLevelYear *= 10;
-      PatchLevelYear += (BootSecurityLevel[Count] - '0');
-    }
-    else {
-      return -1;
-    }
-    Count++;
-  }
-
-  PatchLevelDate = PatchLevelDate << 11;
-  PatchLevelYear = (PatchLevelYear - 2000) << 4;
-  return (PatchLevelDate | PatchLevelYear | PatchLevelMonth);
-}
-
 STATIC EFI_STATUS
 LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume)
 {
@@ -885,17 +844,11 @@ LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume)
   UINT32 ImageSizeActual = 0;
   VOID *ImageBuffer = NULL;
   UINTN ImageSize = 0;
-  KMRotAndBootState Data = {0};
-  CONST CHAR8 *BootSecurityLevel = NULL;
-  size_t BootSecurityLevelSize = 0;
-  BOOLEAN DateSupport = FALSE;
-  CONST boot_img_hdr *BootImgHdr = NULL;
   AvbSlotVerifyFlags VerifyFlags =
       AllowVerificationError ? AVB_SLOT_VERIFY_FLAGS_ALLOW_VERIFICATION_ERROR
                              : AVB_SLOT_VERIFY_FLAGS_NONE;
   AvbHashtreeErrorMode VerityFlags =
       AVB_HASHTREE_ERROR_MODE_RESTART_AND_INVALIDATE;
-  CHAR8 Digest[AVB_SHA256_DIGEST_SIZE];
   BOOLEAN UpdateRollback = FALSE;
 
   Info->BootState = RED;
@@ -1131,52 +1084,10 @@ LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume)
     GUARD_OUT (AppendVBCommonCmdLine (Info));
     GUARD_OUT (AppendVBCmdLine (Info, SlotData->cmdline));
   }
-  /* Set Rot & Boot State*/
-  Data.Color = Info->BootState;
-  Data. IsUnlocked = AllowVerificationError;
-  Data.PublicKeyLength = UserData->PublicKeyLen;
-  Data.PublicKey = UserData->PublicKey;
 
-  BootImgHdr = (boot_img_hdr *)ImageBuffer;
-  GUARD_OUT (KeyMasterGetDateSupport (&DateSupport));
+  /* bring up keymaster, needed for Android GVM */
+  GUARD (KeyMasterStart ());
 
-  /* Send date value in security patch only when KM TA supports it and the
-   * property is available in vbmeta data, send the old value in other cases
-  */
-  if (DateSupport) {
-    DEBUG ((EFI_D_INFO, "DateSupport: %d\n", DateSupport));
-    BootSecurityLevel = avb_property_lookup (
-                           SlotData->vbmeta_images[0].vbmeta_data,
-                           SlotData->vbmeta_images[0].vbmeta_size,
-                           "com.android.build.boot.security_patch",
-                           0, &BootSecurityLevelSize);
-
-    if (BootSecurityLevel != NULL &&
-        BootSecurityLevelSize == MAX_PROPERTY_SIZE) {
-      Data.SystemSecurityLevel = ParseBootSecurityLevel (BootSecurityLevel,
-                                                         BootSecurityLevelSize);
-      if (Data.SystemSecurityLevel < 0) {
-        DEBUG ((EFI_D_ERROR, "System security patch level format invalid\n"));
-        Status = EFI_INVALID_PARAMETER;
-        goto out;
-      }
-    }
-    else {
-      Data.SystemSecurityLevel = (BootImgHdr->os_version & 0x7FF);
-    }
-  }
-  else {
-    Data.SystemSecurityLevel = (BootImgHdr->os_version & 0x7FF);
-  }
-  Data.SystemVersion = (BootImgHdr->os_version & 0xFFFFF800) >> 11;
-
-  GUARD_OUT (KeyMasterSetRotAndBootState (&Data));
-  if (!HibernationResume) {
-    ComputeVbMetaDigest (SlotData, (CHAR8 *)&Digest);
-    GUARD_OUT (SetVerifiedBootHash ((CONST CHAR8 *)&Digest, sizeof(Digest)));
-    DEBUG ((EFI_D_INFO, "VB2: Authenticate complete! boot state is: %a\n",
-            VbSn[Info->BootState].name));
-  }
 out:
   if (Status != EFI_SUCCESS) {
     if (SlotData != NULL) {
@@ -1404,6 +1315,30 @@ skip_verification:
 }
 
 EFI_STATUS
+TzBlowSwFuse (VOID)
+{
+  EFI_STATUS Status;
+  QCOM_SCM_PROTOCOL *pQcomScmProtocol = NULL;
+  UINT64 Param[SCM_MAX_NUM_PARAMETERS] = {0};
+  UINT64 Results[SCM_MAX_NUM_RESULTS] = {0};
+
+  Status = gBS->LocateProtocol (&gQcomScmProtocolGuid, NULL, (VOID **)&pQcomScmProtocol);
+  if (Status != EFI_SUCCESS || !pQcomScmProtocol) {
+    DEBUG ((EFI_D_ERROR, "TzBlowSwFuse - LocateProtocol failed!\n"));
+    return Status;
+  }
+
+  Status = pQcomScmProtocol->ScmSipSysCall(pQcomScmProtocol, TZ_BLOW_SW_FUSE_ID,
+      TZ_BLOW_SW_FUSE_ID_PARAM_ID, Param, Results);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "TzBlowSwFuse - ScmSipSysCall failed!\n"));
+    return Status;
+  }
+
+  return Status;
+}
+
+EFI_STATUS
 LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume)
 {
   EFI_STATUS Status = EFI_SUCCESS;
@@ -1523,10 +1458,11 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume)
 
   if (AVBVersion != AVB_LE) {
     DisplayVerifiedBootScreen (Info);
-    DEBUG ((EFI_D_VERBOSE, "Sending Milestone Call\n"));
-    Status = Info->VbIntf->VBSendMilestone (Info->VbIntf);
+    // Make ScmSipSysCall to Blow TZ Fuse.
+    Status = TzBlowSwFuse();
     if (Status != EFI_SUCCESS) {
-      DEBUG ((EFI_D_ERROR, "Error sending milestone call to TZ\n"));
+      DEBUG ((EFI_D_ERROR, "TzBlowSwFuse failed - Status: (0x%x)\r\n",
+             Status));
       return Status;
     }
   }

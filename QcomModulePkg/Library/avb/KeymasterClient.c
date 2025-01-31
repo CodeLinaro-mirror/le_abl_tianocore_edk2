@@ -25,6 +25,13 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "KeymasterClient.h"
 #include "VerifiedBoot.h"
 #include "libavb/libavb.h"
@@ -457,5 +464,15 @@ KeyMasterGetDateSupport (BOOLEAN *Supported)
   }
 
   *Supported = TRUE;
+  return Status;
+}
+
+EFI_STATUS
+KeyMasterStart (VOID)
+{
+  /*bring up keymaster*/
+  EFI_STATUS Status = EFI_SUCCESS;
+  KMHandle Handle = {NULL};
+  GUARD (KeyMasterStartApp (&Handle));
   return Status;
 }

@@ -26,6 +26,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef __KEYMASTER_CLIENT_H__
 #define __KEYMASTER_CLIENT_H__
 
@@ -52,4 +58,8 @@ KeyMasterGetDateSupport (BOOLEAN *Supported);
 
 EFI_STATUS
 StartKeyMaster (void);
+
+EFI_STATUS
+KeyMasterStart (VOID);
+
 #endif /* __KEYMASTER_CLIENT_H__ */
