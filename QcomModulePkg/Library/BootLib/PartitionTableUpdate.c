@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -1400,6 +1400,8 @@ GetActiveSlot (Slot *ActiveSlot)
   EFI_STATUS Status = EFI_SUCCESS;
   Slot Slots[] = {{L"_a"}, {L"_b"}};
   UINT64 Priority = 0;
+  CHAR8 BootDeviceType[BOOT_DEV_NAME_SIZE_MAX];
+  GetRootDeviceType (BootDeviceType, BOOT_DEV_NAME_SIZE_MAX);
 
   if (ActiveSlot == NULL) {
     DEBUG ((EFI_D_ERROR, "GetActiveSlot: bad parameter\n"));
@@ -1439,7 +1441,8 @@ GetActiveSlot (Slot *ActiveSlot)
   DEBUG ((EFI_D_VERBOSE, "GetActiveSlot: found active slot %s, priority %d\n",
           ActiveSlot->Suffix, Priority));
 
-  if (AtomicABEnabled ()) {
+  if (AtomicABEnabled () &&
+     (!AsciiStrnCmp (BootDeviceType, "UFS", AsciiStrLen ("UFS")))) {
     return GetAtomicABActiveSlot (ActiveSlot);
   }
 
