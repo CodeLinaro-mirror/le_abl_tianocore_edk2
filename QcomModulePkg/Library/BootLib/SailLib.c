@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -294,8 +294,8 @@ SailFlash (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
     return EFI_BUFFER_TOO_SMALL;
   }
 
-  for (Iter = 0;  Iter < SAIL_UPD_IMG_NAME_LEN ||
-                                Arg[Iter] != '\0'; Iter++) {
+  for (Iter = 0; Arg[Iter] != '\0' &&
+                                     Iter < SAIL_UPD_IMG_NAME_LEN ; Iter++) {
         Argument[Iter] = AsciiCharToUpper (Arg[Iter]);
   }
 
