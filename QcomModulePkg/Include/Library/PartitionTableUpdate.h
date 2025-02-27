@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -164,6 +164,7 @@ table in the respective position mentioned below.
 #define MIN_SLOTS 1
 #define MAX_SLOTS 2
 #define MAX_LUNS 8
+#define EMMC_MAX_LUNS 3
 #define NO_LUN -1
 
 #define MAX_NUM_PARTITIONS (MAX_NUM_PARTITIONS_PER_LUN * MAX_LUNS)
@@ -264,4 +265,5 @@ EFI_STATUS ClearUnbootable (VOID);
 BOOLEAN IsABRetryCountUpdateRequired (VOID);
 UINT32 PartitionVerifyMibibImage (UINT8 *Image);
 UINT64 GetPartitionSize (EFI_BLOCK_IO_PROTOCOL *BlockIo);
+BOOLEAN GetEmmcMultiLunSupport (VOID);
 #endif
