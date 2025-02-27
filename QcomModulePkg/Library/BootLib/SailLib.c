@@ -23,6 +23,7 @@ UINT32 SailStatus = -1;
 
 STATIC CONST CHAR8 *SailPartitions[] = {
     "SAIL_SW1", "SAIL_SW2", "SAIL_SW3", "SAIL_SW4", "SAIL_HYP",
+    "SAIL_SW5", "SAIL_SW6", "SAIL_SEC", "SAIL_CAL", "SAIL_DBG",
 };
 
 BOOLEAN
