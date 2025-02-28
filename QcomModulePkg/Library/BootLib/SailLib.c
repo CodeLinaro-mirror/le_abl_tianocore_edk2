@@ -9,7 +9,6 @@
 
 #include <Protocol/EFIMailbox.h>
 
-#define SAIL_BUFFER_ADDRESS 0x90E00000
 #define SAIL_IMAGE_DATA_OFFSET 0x800
 #define SAIL_IMAGE_SIZE_OFFSET 0xA40
 #define SAIL_PART_NAME_LEN 8
@@ -71,12 +70,8 @@ GetSailBaseAddr (UINT64 *SailBufferAddr)
                              SailBufferAddr);
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_VERBOSE, "Failed to get SAIL Buffer Address, %r\n", Status));
-  } else {
-    *SailBufferAddr = SAIL_BUFFER_ADDRESS;
-    DEBUG ((EFI_D_VERBOSE,
-              "Using SAIL Buffer Address:%llx\n", *SailBufferAddr ));
   }
-  return EFI_SUCCESS;
+  return Status;
 }
 
 STATIC VOID
