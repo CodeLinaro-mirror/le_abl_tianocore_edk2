@@ -30,7 +30,7 @@
 #/*
 # *  Changes from Qualcomm Innovation Center are provided under the following license:
 # *
-# *  Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# *  Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 # *
 # *  Redistribution and use in source and binary forms, with or without
 # *  modification, are permitted (subject to the limitations in the
@@ -220,7 +220,9 @@
   !if $(ETH_DT_PATCH_NEEDED) == 1
       GCC:*_*_*_CC_FLAGS = -DGET_VIP_BID_INFO -DETH_DT_PATCH_NEEDED
   !endif
-
+  !if $(EMMC_MULTI_LUN_SUPPORT)
+      GCC:*_*_*_CC_FLAGS = -DEMMC_MULTI_LUN_SUPPORT
+  !endif
 [PcdsFixedAtBuild.common]
 
 # DEBUG_ASSERT_ENABLED       0x01

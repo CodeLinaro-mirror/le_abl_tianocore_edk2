@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9,7 +9,6 @@
 
 #include <Protocol/EFIMailbox.h>
 
-#define SAIL_BUFFER_ADDRESS 0x90E00000
 #define SAIL_IMAGE_DATA_OFFSET 0x800
 #define SAIL_IMAGE_SIZE_OFFSET 0xA40
 #define SAIL_PART_NAME_LEN 8
@@ -23,6 +22,7 @@ UINT32 SailStatus = -1;
 
 STATIC CONST CHAR8 *SailPartitions[] = {
     "SAIL_SW1", "SAIL_SW2", "SAIL_SW3", "SAIL_SW4", "SAIL_HYP",
+    "SAIL_SW5", "SAIL_SW6", "SAIL_SEC", "SAIL_CAL", "SAIL_DBG",
 };
 
 BOOLEAN
@@ -70,12 +70,8 @@ GetSailBaseAddr (UINT64 *SailBufferAddr)
                              SailBufferAddr);
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_VERBOSE, "Failed to get SAIL Buffer Address, %r\n", Status));
-  } else {
-    *SailBufferAddr = SAIL_BUFFER_ADDRESS;
-    DEBUG ((EFI_D_VERBOSE,
-              "Using SAIL Buffer Address:%llx\n", *SailBufferAddr ));
   }
-  return EFI_SUCCESS;
+  return Status;
 }
 
 STATIC VOID
@@ -294,8 +290,8 @@ SailFlash (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
     return EFI_BUFFER_TOO_SMALL;
   }
 
-  for (Iter = 0;  Iter < SAIL_UPD_IMG_NAME_LEN ||
-                                Arg[Iter] != '\0'; Iter++) {
+  for (Iter = 0; Arg[Iter] != '\0' &&
+                                     Iter < SAIL_UPD_IMG_NAME_LEN ; Iter++) {
         Argument[Iter] = AsciiCharToUpper (Arg[Iter]);
   }
 
