@@ -29,7 +29,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -88,6 +88,12 @@ STATIC KMHandle Handle = {NULL};
 #define KEYMASTER_CMD_ID 0x100UL
 #define KEYMASTER_UTILS_CMD_ID 0x200UL
 #define GK_CMD_ID 0x1000UL
+
+#ifdef LOAD_TWO_KM_TAS
+#define KMVIRT_PARTITION_GUID \
+    { 0xf3e39102, 0xed76, 0x4bdd, \
+      { 0xa0, 0x06, 0xde, 0xe6, 0x9b, 0x68, 0xb2, 0x1b } }
+#endif
 
 typedef enum {
   /*
@@ -210,6 +216,9 @@ EFI_STATUS
 KeyMasterStartApp (KMHandle *Handle)
 {
   EFI_STATUS Status = EFI_SUCCESS;
+#ifdef LOAD_TWO_KM_TAS
+  EFI_GUID KmvirtPartitionGuid = KMVIRT_PARTITION_GUID;
+#endif
   KMGetVersionReq Req = {0};
   KMGetVersionRsp Rsp = {0};
 
@@ -229,13 +238,30 @@ KeyMasterStartApp (KMHandle *Handle)
     return Status;
   }
 
+#ifdef LOAD_TWO_KM_TAS
+  DEBUG ((EFI_D_VERBOSE, "Loading kmvirt TA\n"));
+  // Keymaster64 TA is loaded automaticlly by UEFI
+  Status = Handle->QseeComProtocol->QseecomStartAppByGuid (
+    Handle->QseeComProtocol, &KmvirtPartitionGuid, &(Handle->AppId)
+  );
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR,
+            "Loading kmvirt TA: QseecomStartAppByGuid failed with status: %r\n",
+             Status));
+    return Status;
+  }
+#else
+  DEBUG ((EFI_D_VERBOSE, "Getting keymaster64 TA handle\n"));
   Status = Handle->QseeComProtocol->QseecomStartApp (
       Handle->QseeComProtocol, "keymaster", &(Handle->AppId));
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR,
-            "KeyMasterStartApp: QseecomStartApp failed status: %r\n", Status));
+            "Failed to get handle for Keymaster64 TA. " \
+            "QseecomStartApp failed with status: %r\n",
+            Status));
     return Status;
   }
+#endif
 
   DEBUG ((EFI_D_VERBOSE, "keymaster app id %d\n", Handle->AppId));
 
