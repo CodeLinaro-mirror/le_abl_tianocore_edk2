@@ -49,7 +49,7 @@ found at
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -1840,8 +1840,21 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
         UfsGetSetBootLun (&UfsBootLun, FALSE); /* False = Set */
       }
     } else if (!AsciiStrnCmp (BootDeviceType, "EMMC", AsciiStrLen ("EMMC"))) {
+#ifdef EMMC_MULTI_LUN_SUPPORT
+     if (!GetEmmcMultiLunSupport ()) {
+        /* We are setting Lun to NO_LUN in case if emmc device supports only
+         * single LUN. This value is used to get the storage handle for the
+         * storage device.
+         * LunSet flag is set when we need to  perform operation on a particular
+         * LUN
+        */
+        Lun = NO_LUN;
+        LunSet = FALSE;
+      }
+#else
       Lun = NO_LUN;
       LunSet = FALSE;
+#endif
     }
     DEBUG ((EFI_D_INFO, "Attemping to update partition table\n"));
     DEBUG ((EFI_D_INFO, "*************** Current partition Table Dump Start "

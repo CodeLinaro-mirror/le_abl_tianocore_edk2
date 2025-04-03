@@ -1214,7 +1214,21 @@ UpdateBootParamsSizeAndCmdLine (BootInfo *Info, BootParamlist *BootParamlistPtr)
                ((boot_img_hdr *)(BootParamlistPtr->ImageBuffer))->page_size;
     BootParamlistPtr->CmdLine = (CHAR8 *)&(((boot_img_hdr *)
                              (BootParamlistPtr->ImageBuffer))->cmdline[0]);
-    BootParamlistPtr->CmdLine[BOOT_ARGS_SIZE - 1] = '\0';
+    BootParamlistPtr->ExtraCmdLine = (CHAR8 *)&(((boot_img_hdr *)
+                            (BootParamlistPtr->ImageBuffer))->extra_cmdline[0]);
+
+    if (BootParamlistPtr->ExtraCmdLine[0]) {
+      UINT32 FullCmdLen = BOOT_ARGS_SIZE + BOOT_EXTRA_ARGS_SIZE;
+      CHAR8* FullCmdLine = AllocateZeroPool (FullCmdLen);
+
+      AsciiStrCpyS (FullCmdLine, FullCmdLen, BootParamlistPtr->CmdLine);
+      AsciiStrCatS (FullCmdLine, FullCmdLen, BootParamlistPtr->ExtraCmdLine);
+      BootParamlistPtr->CmdLine = FullCmdLine;
+      BootParamlistPtr->CmdLine[FullCmdLen - 1] = '\0';
+    }
+    else {
+      BootParamlistPtr->CmdLine[BOOT_ARGS_SIZE - 1] = '\0';
+    }
 
     return EFI_SUCCESS;
   } else if (Info->HeaderVersion == BOOT_HEADER_VERSION_THREE) {
@@ -1323,7 +1337,7 @@ BootLinux (BootInfo *Info)
   CHAR16 *PartitionName = NULL;
   BOOLEAN Recovery = FALSE;
   BOOLEAN AlarmBoot = FALSE;
-  BOOLEAN FlashlessBoot = Info->FlashlessBoot;
+  BOOLEAN FlashlessBoot;
   CHAR8 SilentBootMode;
 
   LINUX_KERNEL LinuxKernel;
@@ -1341,13 +1355,15 @@ BootLinux (BootInfo *Info)
 
   EFI_KERNEL_PROTOCOL *KernIntf = NULL;
   Thread *ThreadNum;
-  VOID *StackBase;
-  VOID **StackCurrent;
+  VOID *StackBase = NULL;
+  VOID **StackCurrent = NULL;
 
   if (Info == NULL) {
     DEBUG ((EFI_D_ERROR, "BootLinux: invalid parameter Info\n"));
     return EFI_INVALID_PARAMETER;
   }
+
+  FlashlessBoot = Info->FlashlessBoot;
 
   if (IsVmEnabled ()) {
     Status = CheckAndSetVmData (&BootParamlistPtr);
@@ -1709,7 +1725,7 @@ CheckImageHeader (VOID *ImageHdrBuffer,
   boot_img_hdr_v3 *RecoveryImgHdrV3 = NULL;
   boot_img_hdr_v4 *BootImgHdrV4;
   vendor_boot_img_hdr_v4 *VendorBootImgHdrV4;
-  boot_img_hdr_v4 *RecoveryImgHdrV4;
+  boot_img_hdr_v4 *RecoveryImgHdrV4 = NULL;
 
   UINT32 KernelSizeActual = 0;
   UINT32 DtSizeActual = 0;

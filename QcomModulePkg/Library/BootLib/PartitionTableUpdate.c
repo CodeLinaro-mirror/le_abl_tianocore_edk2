@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -85,12 +85,23 @@ STATIC UINT32 MaxLuns;
 STATIC UINT32 PartitionCount;
 STATIC BOOLEAN FirstBoot;
 STATIC struct PartitionEntry PtnEntriesBak[MAX_NUM_PARTITIONS];
+#ifdef EMMC_MULTI_LUN_SUPPORT
+BOOLEAN EmmcMultiLun;
+#endif
+
 
 STATIC struct BootPartsLinkedList *HeadNode;
 STATIC EFI_STATUS
 GetActiveSlot (Slot *ActiveSlot);
 STATIC EFI_STATUS
 GetAtomicABActiveSlot (Slot *ActiveSlot);
+#ifdef EMMC_MULTI_LUN_SUPPORT
+BOOLEAN GetEmmcMultiLunSupport (VOID)
+{
+  return EmmcMultiLun;
+}
+#endif
+
 
 Slot GetCurrentSlotSuffix (VOID)
 {
@@ -204,6 +215,15 @@ GetStorageHandle (INT32 Lun, HandleInfo *BlockIoHandle, UINT32 *MaxHandles)
       gEfiUfsLU4Guid, gEfiUfsLU5Guid, gEfiUfsLU6Guid, gEfiUfsLU7Guid,
   };
 
+#ifdef EMMC_MULTI_LUN_SUPPORT
+  // EMMC LUN GUIDs
+  EFI_GUID EmmcLunGuids[] = {
+      gEfiEmmcUserPartitionGuid,
+      gEfiEmmcBootPartition1Guid,
+      gEfiEmmcBootPartition2Guid,
+  };
+#endif
+
   Attribs |= BLK_IO_SEL_SELECT_ROOT_DEVICE_ONLY;
   HandleFilter.PartitionType = NULL;
   HandleFilter.VolumeName = NULL;
@@ -216,6 +236,16 @@ GetStorageHandle (INT32 Lun, HandleInfo *BlockIoHandle, UINT32 *MaxHandles)
       DEBUG ((EFI_D_ERROR, "Error getting block IO handle for Emmc\n"));
       return Status;
     }
+#ifdef EMMC_MULTI_LUN_SUPPORT
+  } else if (EmmcMultiLun) {
+    HandleFilter.RootDeviceType = &EmmcLunGuids[Lun];
+    Status =
+        GetBlkIOHandles (Attribs, &HandleFilter, BlockIoHandle, MaxHandles);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((EFI_D_ERROR, "Error getting block IO handle for Lun:%x\n", Lun));
+      return Status;
+    }
+#endif
   } else {
     HandleFilter.RootDeviceType = &LunGuids[Lun];
     Status =
@@ -301,7 +331,15 @@ VOID UpdatePartitionAttributes (UINT32 UpdateType)
   for (Lun = 0; Lun < MaxLuns; Lun++) {
 
     if (!AsciiStrnCmp (BootDeviceType, "EMMC", AsciiStrLen ("EMMC"))) {
+#ifdef EMMC_MULTI_LUN_SUPPORT
+      if (EmmcMultiLun) {
+        Status = GetStorageHandle (Lun, BlockIoHandle, &MaxHandles);
+      } else {
+        Status = GetStorageHandle (NO_LUN, BlockIoHandle, &MaxHandles);
+      }
+#else
       Status = GetStorageHandle (NO_LUN, BlockIoHandle, &MaxHandles);
+#endif
     } else if (!AsciiStrnCmp (BootDeviceType, "UFS", AsciiStrLen ("UFS"))) {
       Status = GetStorageHandle (Lun, BlockIoHandle, &MaxHandles);
     } else if (!AsciiStrnCmp (BootDeviceType, "NAND", AsciiStrLen ("NAND"))) {
@@ -372,8 +410,12 @@ VOID UpdatePartitionAttributes (UINT32 UpdateType)
           DEBUG ((EFI_D_VERBOSE, " Skipping Lun:%d, i=%d\n", Lun, i));
           continue;
         }
-
+#ifdef EMMC_MULTI_LUN_SUPPORT
+        if (!AsciiStrnCmp (BootDeviceType, "UFS", AsciiStrLen ("UFS")) ||
+            EmmcMultiLun) {
+#else
         if (!AsciiStrnCmp (BootDeviceType, "UFS", AsciiStrLen ("UFS"))) {
+#endif
           /* Partition table is populated with entries from lun 0 to max lun.
            * break out of the loop once we see the partition lun is > current
            * lun */
@@ -694,6 +736,13 @@ EnumeratePartitions (VOID)
       gEfiUfsLU0Guid, gEfiUfsLU1Guid, gEfiUfsLU2Guid, gEfiUfsLU3Guid,
       gEfiUfsLU4Guid, gEfiUfsLU5Guid, gEfiUfsLU6Guid, gEfiUfsLU7Guid,
   };
+#ifdef EMMC_MULTI_LUN_SUPPORT
+  // EMMC LUN GUIDs
+  EFI_GUID EmmcLunGuids[] = {
+      gEfiEmmcUserPartitionGuid, gEfiEmmcBootPartition1Guid,
+      gEfiEmmcBootPartition2Guid,
+  };
+#endif
 
   gBS->SetMem ((VOID *)Ptable, (sizeof (struct StoragePartInfo) * MAX_LUNS), 0);
 
@@ -727,6 +776,33 @@ EnumeratePartitions (VOID)
                        &Ptable[0].MaxHandles);
   if (Status == EFI_SUCCESS && Ptable[0].MaxHandles > 0) {
     MaxLuns = 1;
+#ifdef EMMC_MULTI_LUN_SUPPORT
+    /* Get the Block IO handle for the EMMC storage based device
+     * in case if multiple LUN are supported. Currently the maximum
+     * number of LUN supported for EMMC device is 3.
+    */
+
+    for (i = 1; i < EMMC_MAX_LUNS; i++) {
+      Ptable[i].MaxHandles = ARRAY_SIZE (Ptable[i].HandleInfoList);
+      HandleFilter.PartitionType = NULL;
+      HandleFilter.VolumeName = NULL;
+      HandleFilter.RootDeviceType = &EmmcLunGuids[i];
+
+     Status =
+          GetBlkIOHandles (Attribs, &HandleFilter, &Ptable[i].HandleInfoList[0],
+                           &Ptable[i].MaxHandles);
+      /* If we fail to get block for a lun that means the lun is not configured
+       * and unsed, ignore the error
+       * and continue with the next Lun */
+      if (EFI_ERROR (Status)) {
+        DEBUG ((EFI_D_ERROR,
+                "Error getting block IO handle for %d lun, Lun may be unused\n",
+                i));
+        continue;
+      }
+    }
+    MaxLuns = i;
+#endif
   }
   /* If the media is not emmc then look for UFS */
   else if (EFI_ERROR (Status) || Ptable[0].MaxHandles == 0) {
@@ -1400,6 +1476,8 @@ GetActiveSlot (Slot *ActiveSlot)
   EFI_STATUS Status = EFI_SUCCESS;
   Slot Slots[] = {{L"_a"}, {L"_b"}};
   UINT64 Priority = 0;
+  CHAR8 BootDeviceType[BOOT_DEV_NAME_SIZE_MAX];
+  GetRootDeviceType (BootDeviceType, BOOT_DEV_NAME_SIZE_MAX);
 
   if (ActiveSlot == NULL) {
     DEBUG ((EFI_D_ERROR, "GetActiveSlot: bad parameter\n"));
@@ -1439,7 +1517,8 @@ GetActiveSlot (Slot *ActiveSlot)
   DEBUG ((EFI_D_VERBOSE, "GetActiveSlot: found active slot %s, priority %d\n",
           ActiveSlot->Suffix, Priority));
 
-  if (AtomicABEnabled ()) {
+  if (AtomicABEnabled () &&
+     (!AsciiStrnCmp (BootDeviceType, "UFS", AsciiStrLen ("UFS")))) {
     return GetAtomicABActiveSlot (ActiveSlot);
   }
 

@@ -30,7 +30,7 @@
 #/*
 # *  Changes from Qualcomm Innovation Center are provided under the following license:
 # *
-# *  Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# *  Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 # *
 # *  Redistribution and use in source and binary forms, with or without
 # *  modification, are permitted (subject to the limitations in the
@@ -141,6 +141,15 @@
   !if $(PVM_SKIP_DTBO)
       GCC:*_*_*_CC_FLAGS = -DPVM_SKIP_DTBO
   !endif
+
+  !ifdef $(FORCE_NO_PIE)
+  GCC:*_*_*_ARCHCC_FLAGS  =  -fno-PIE
+  GCC:*_*_*_DLINK_FLAGS = -Wl,--no-pie
+  !endif
+
+  !if $(FORCE_NO_PIE)
+      GCC:*_*_*_CC_FLAGS = -DFORCE_NO_PIE
+  !endif
   !if $(SUPPORT_AB_BOOT_LXC)
       GCC:*_*_*_CC_FLAGS = -DSUPPORT_AB_BOOT_LXC
   !endif
@@ -175,6 +184,9 @@
   !endif
   !if $(AB_FORCE_USE_SYSTEM_A) == 1
       GCC:*_*_*_CC_FLAGS = -DAB_FORCE_USE_SYSTEM_A
+  !endif
+  !if $(BOOTIMAGE_LOAD_VERIFY_IN_PARALLEL) == 1
+      GCC:*_*_*_CC_FLAGS = -DBOOTIMAGE_LOAD_VERIFY_IN_PARALLEL
   !endif
   !if $(VERITY_LE)
       GCC:*_*_*_CC_FLAGS = -DVERITY_LE
@@ -217,7 +229,9 @@
   !if $(ETH_DT_PATCH_NEEDED) == 1
       GCC:*_*_*_CC_FLAGS = -DGET_VIP_BID_INFO -DETH_DT_PATCH_NEEDED
   !endif
-
+  !if $(EMMC_MULTI_LUN_SUPPORT)
+      GCC:*_*_*_CC_FLAGS = -DEMMC_MULTI_LUN_SUPPORT
+  !endif
 [PcdsFixedAtBuild.common]
 
 # DEBUG_ASSERT_ENABLED       0x01

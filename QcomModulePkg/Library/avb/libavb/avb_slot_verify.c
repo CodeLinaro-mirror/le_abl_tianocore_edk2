@@ -50,6 +50,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "avb_slot_verify.h"
 #include "avb_chain_partition_descriptor.h"
 #include "avb_cmdline.h"
@@ -61,6 +68,8 @@
 #include "avb_util.h"
 #include "avb_vbmeta_image.h"
 #include "avb_version.h"
+#include "avb_load_verify_parallel.h"
+
 
 /* Maximum number of partitions that can be loaded with avb_slot_verify(). */
 #define MAX_NUMBER_OF_LOADED_PARTITIONS 32
@@ -408,11 +417,36 @@ static AvbSlotVerifyResult load_and_verify_hash_partition(
     avb_debugv(part_name, ": Loading entire partition.\n", NULL);
   }
 
-  ret = load_full_partition(
+#if BOOTIMAGE_LOAD_VERIFY_IN_PARALLEL
+  if ((avb_strncmp ("boot", part_name, 4) == 0)) {
+    image_buf = avb_malloc (image_size);
+    if (image_buf == NULL) {
+      ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
+      goto out;
+    }
+    ret = LoadAndVerifyBootHashPartition (ops,
+                                          hash_desc,
+                                          part_name,
+                                          desc_digest,
+                                          desc_salt,
+                                          image_buf,
+                                          hash_desc.image_size);
+    goto out;
+  } else {
+    ret = load_full_partition (
+        ops, part_name, image_size, &image_buf, &image_preloaded);
+    if (ret != AVB_SLOT_VERIFY_RESULT_OK) {
+        goto out;
+    }
+  }
+#else
+  ret = load_full_partition (
       ops, part_name, image_size, &image_buf, &image_preloaded);
   if (ret != AVB_SLOT_VERIFY_RESULT_OK) {
-    goto out;
+      goto out;
   }
+#endif
+
   // Although only one of the type might be used, we have to defined the
   // structure here so that they would live outside the 'if/else' scope to be
   // used later.
@@ -981,6 +1015,10 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
    */
   descriptors =
       avb_descriptor_get_all(vbmeta_buf, vbmeta_num_read, &num_descriptors);
+  if (descriptors == NULL) {
+     goto out;
+  }
+
   for (n = 0; n < num_descriptors; n++) {
     AvbDescriptor desc;
 

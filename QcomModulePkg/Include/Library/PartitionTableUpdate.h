@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -148,12 +148,13 @@ table in the respective position mentioned below.
 #define PART_ATT_UNBOOTABLE_VAL ((UINT64)0x1 << PART_ATT_UNBOOTABLE_BIT)
 #define MAX_PRIORITY 3
 #define MAX_RETRY_COUNT 7
-#define MAX_NUM_PARTITIONS 128
+#define MAX_NUM_PARTITIONS_PER_LUN 128
 #define MIN_PARTITION_ARRAY_SIZE 0x4000
 #define ATTRIBUTE_FLAG_OFFSET 48
 #define INVALID_PTN -1
 #define GPT_HDR_BLOCKS 0x1
-#define MAX_PARTITION_ENTRIES_SZ (MAX_NUM_PARTITIONS * PARTITION_ENTRY_SIZE)
+#define MAX_PARTITION_ENTRIES_SZ                                               \
+        (MAX_NUM_PARTITIONS_PER_LUN * PARTITION_ENTRY_SIZE)
 #define GUID_SIZE 16
 #define PRIMARY_HDR_LBA 0x1
 #define BOOT_PART_SIZE 32
@@ -163,7 +164,10 @@ table in the respective position mentioned below.
 #define MIN_SLOTS 1
 #define MAX_SLOTS 2
 #define MAX_LUNS 8
+#define EMMC_MAX_LUNS 3
 #define NO_LUN -1
+
+#define MAX_NUM_PARTITIONS (MAX_NUM_PARTITIONS_PER_LUN * MAX_LUNS)
 
 #define GET_LWORD_FROM_BYTE(x)                                                 \
   ((UINT32) * (x) | ((UINT32) * (x + 1) << 8) | ((UINT32) * (x + 2) << 16) |   \
@@ -261,4 +265,5 @@ EFI_STATUS ClearUnbootable (VOID);
 BOOLEAN IsABRetryCountUpdateRequired (VOID);
 UINT32 PartitionVerifyMibibImage (UINT8 *Image);
 UINT64 GetPartitionSize (EFI_BLOCK_IO_PROTOCOL *BlockIo);
+BOOLEAN GetEmmcMultiLunSupport (VOID);
 #endif
