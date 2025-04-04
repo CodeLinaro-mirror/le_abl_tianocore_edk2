@@ -137,9 +137,22 @@
   !if $(LOAD_KM_AND_SET_ROT)
       GCC:*_*_*_CC_FLAGS = -DLOAD_KM_AND_SET_ROT
   !endif
+# LOAD_TWO_KM_TAS is needed for architectures which use legacy and OneKeymint TAs
+  !if $(LOAD_TWO_KM_TAS)
+      GCC:*_*_*_CC_FLAGS = -DLOAD_TWO_KM_TAS
+  !endif
 # PVM_SKIP_DTBO to skip load dtbo.image
   !if $(PVM_SKIP_DTBO)
       GCC:*_*_*_CC_FLAGS = -DPVM_SKIP_DTBO
+  !endif
+
+  !ifdef $(FORCE_NO_PIE)
+  GCC:*_*_*_ARCHCC_FLAGS  =  -fno-PIE
+  GCC:*_*_*_DLINK_FLAGS = -Wl,--no-pie
+  !endif
+
+  !if $(FORCE_NO_PIE)
+      GCC:*_*_*_CC_FLAGS = -DFORCE_NO_PIE
   !endif
   !if $(SUPPORT_AB_BOOT_LXC)
       GCC:*_*_*_CC_FLAGS = -DSUPPORT_AB_BOOT_LXC
