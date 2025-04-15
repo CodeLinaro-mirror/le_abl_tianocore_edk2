@@ -98,22 +98,22 @@ typedef enum {
 #define DDR_SHIFT              8
 
 #define MB             (1024 * 1024UL)
-#define DDR_128MB      (128 * MB)
-#define DDR_256MB      (256 * MB)
-#define DDR_512MB      (512 * MB)
-#define DDR_1024MB     (1024 * MB)
-#define DDR_2048MB     (2048 * MB)
-#define DDR_3072MB     (3072 * MB)
-#define DDR_4096MB     (4096 * MB)
+#define DDR_8192MB     (8192 * MB)
+#define DDR_12288MB     (12288 * MB)
+#define DDR_18432MB     (18432 * MB)
+#define DDR_24576MB     (24576 * MB)
+#define DDR_36864MB     (36864 * MB)
+#define DDR_49152MB     (49152 * MB)
+#define DDR_65536MB     (65536 * MB)
 
 typedef enum {
-  DDRTYPE_256MB = 1,
-  DDRTYPE_512MB,
-  DDRTYPE_1024MB,
-  DDRTYPE_2048MB,
-  DDRTYPE_3072MB,
-  DDRTYPE_4096MB,
-  DDRTYPE_128MB,
+  DDRTYPE_8192MB = 1,
+  DDRTYPE_12288MB,
+  DDRTYPE_18432MB,
+  DDRTYPE_24576MB,
+  DDRTYPE_36864MB,
+  DDRTYPE_49152MB,
+  DDRTYPE_65536MB,
 } DdrType;
 
 struct BoardInfo {
