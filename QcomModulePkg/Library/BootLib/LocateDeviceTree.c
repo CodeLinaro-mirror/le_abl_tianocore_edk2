@@ -1539,7 +1539,7 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
   if ((cur_dt_msm_id == (BoardPlatformRawChipId () & 0x0000ffff)) &&
       (cur_dt_hw_platform == BoardPlatformType ()) &&
       (cur_dt_hw_subtype == BoardPlatformSubType ()) &&
-      (cur_dt_hlos_ddr == (BoardPlatformHlosSubType() & 0x700)) &&
+      (cur_dt_hlos_ddr <= (BoardPlatformHlosSubType () & 0x700)) &&
       (cur_dt_entry->soc_rev <= BoardPlatformChipVersion ()) &&
       ((cur_dt_entry->variant_id & 0x00ffff00) <=
        (BoardTargetId () & 0x00ffff00)) &&
