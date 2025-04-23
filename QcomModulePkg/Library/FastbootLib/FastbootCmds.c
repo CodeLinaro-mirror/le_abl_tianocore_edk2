@@ -160,6 +160,7 @@ STATIC CHAR8 StrBatteryVoltage[MAX_RSP_SIZE];
 STATIC CHAR8 StrBatterySocOk[MAX_RSP_SIZE];
 STATIC CHAR8 ChargeScreenEnable[MAX_RSP_SIZE];
 STATIC CHAR8 OffModeCharge[MAX_RSP_SIZE];
+STATIC CHAR8 StrSocId[MAX_RSP_SIZE];
 STATIC CHAR8 StrSocVersion[MAX_RSP_SIZE];
 STATIC CHAR8 LogicalBlkSizeStr[MAX_RSP_SIZE];
 STATIC CHAR8 EraseBlkSizeStr[MAX_RSP_SIZE];
@@ -4041,6 +4042,10 @@ FastbootCommandSetup (IN VOID *Base, IN UINT64 Size)
   AsciiSPrint (StrSocVersion, sizeof (StrSocVersion), "%x",
                 BoardPlatformChipVersion ());
   FastbootPublishVar ("hw-revision", StrSocVersion);
+
+  AsciiSPrint (StrSocId, sizeof (StrSocId), "%d",
+                BoardPlatformRawChipId ());
+  FastbootPublishVar ("soc-id", StrSocId);
 
   if (IsDisableParallelDownloadFlash()) {
     FastbootPublishVar ("parallel-download-flash", "no");
