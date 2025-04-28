@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -11,5 +11,7 @@
 BOOLEAN IsRecoveryInfo ();
 EFI_STATUS RI_GetActiveSlot (Slot *);
 EFI_STATUS RI_HandleFailedSlot (Slot);
+EFI_STATUS RI_SetActiveSlot (Slot *NewSlot);
+EFI_STATUS RI_GetVarAll ();
 
 #endif
