@@ -46,7 +46,8 @@ BOOLEAN IsRecoveryInfo ()
     }
   }
 
-  if (Count == 1) {
+  if (Count == 1 &&
+      HasRecoveryInfo) {
     if (pRecoveryInfoProtocol->Revision ==
         EFI_RECOVERYINFO_PROTOCOL_REVISION_V1) {
       HasRISetActiveSlot = TRUE;
