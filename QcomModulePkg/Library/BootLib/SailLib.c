@@ -9,6 +9,7 @@
 
 #include <Protocol/EFIMailbox.h>
 
+#define ALIGN_UP_SZ(x, y)    (((x) + ((y) - 1)) & ~((y) - 1))
 #define SAIL_IMAGE_DATA_OFFSET 0x800
 #define SAIL_IMAGE_SIZE_OFFSET 0xA40
 #define SAIL_PART_NAME_LEN 8
@@ -246,6 +247,8 @@ SailFlash (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
          return Status;
   }
 
+  Size = ALIGN_UP_SZ (Size, 64);
+
   Status = GetSailBaseAddr (&BufAddr);
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Failed to get the SAIL Buffer Address\n"));
@@ -373,6 +376,8 @@ SailBoot (IN VOID *Data, IN UINT32 Size, BOOLEAN Fastboot)
     DEBUG ((EFI_D_ERROR, "Invalid Input\n"));
     return Status;
   }
+
+  Size = ALIGN_UP_SZ (Size, 64);
 
   if (Fastboot) {
     Data  += SAIL_IMAGE_DATA_OFFSET;
