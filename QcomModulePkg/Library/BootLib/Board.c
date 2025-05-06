@@ -30,7 +30,7 @@
 /*
  *  Changes from Qualcomm Innovation Center are provided under the following license:
  *
- *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -519,12 +519,60 @@ BoardPmicTarget (UINT32 PmicDeviceIndex)
   return target;
 }
 
+EFI_STATUS
+GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_FEATURE_ID FeatureID, UINT32 *FeatureVal)
+{
+  EFI_STATUS Status;
+  EFI_QCOM_SOFT_SKU_PROTOCOL *SoftskuIf;
+
+  Status = gBS->LocateProtocol(&gQcomSoftSKUProtocolGuid, NULL,
+				(VOID **)&SoftskuIf);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Error locating the SOFTSKU protocol\n"));
+    return Status;
+  }
+
+  Status = SoftskuIf->SoftSKUGetFeatureStatus(FeatureID, FeatureVal);
+
+  return Status;
+}
+
+VOID BoardSoftSKU (UINT32 *SKUId)
+{
+  EFI_STATUS Status;
+  UINT32 SwConfig, SubSKU;
+
+  if(!SKUId) {
+    return;
+  } else {
+    *SKUId = BAD_SOFTSKU_ID;
+  }
+
+  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_CHIP_SKU_ID, &SwConfig);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Failed to get Soft SKU Feature Data\n"));
+    SwConfig = BAD_SOFTSKU_ID;
+    return;
+  }
+
+  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_PRODUCT_CFG, &SubSKU);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Failed to get Soft SKU Feature Data\n"));
+    SubSKU = BAD_SOFTSKU_ID;
+    return;
+  }
+
+  *SKUId = ((SwConfig << SOFTSKU_ID_SWCONFIG_SHFIT) |
+		  (SubSKU << SOFTSKU_ID_SUBSKU_SHIFT));
+}
+
 EFI_STATUS BoardInit (VOID)
 {
   EFI_STATUS Status;
   EFIChipInfoModemType ModemType;
   UINT32 DdrType;
   UINT32 BootDeviceType;
+  UINT32 SKUId;
 
   Status = GetChipInfo (&platform_board_info, &ModemType);
   if (EFI_ERROR (Status))
@@ -542,6 +590,9 @@ EFI_STATUS BoardInit (VOID)
 
   platform_board_info.HlosSubType = (BootDeviceType << BOOT_DEVICE_SHIFT);
   platform_board_info.HlosSubType |= (DdrType << DDR_SHIFT);
+
+  BoardSoftSKU (&SKUId);
+  platform_board_info.SoftSKUId = SKUId;
 
   if (BoardPlatformFusion ()) {
     AsciiSPrint ((CHAR8 *)platform_board_info.ChipBaseBand,
@@ -566,6 +617,8 @@ EFI_STATUS BoardInit (VOID)
           platform_board_info.PlatformInfo.fusion));
   DEBUG ((EFI_D_VERBOSE, "HLOS SubType    : 0x%x\n",
           platform_board_info.HlosSubType));
+  DEBUG ((EFI_D_INFO, "Soft SKU ID    : 0x%x\n",
+          platform_board_info.SoftSKUId));
 
   return Status;
 }
@@ -725,6 +778,11 @@ UINT32 BoardPlatformSubType (VOID)
 UINT32 BoardOEMVariantId (VOID)
 {
   return platform_board_info.PlatformInfo.OEMVariantID;
+}
+
+UINT32 BoardSKUId (VOID)
+{
+  return platform_board_info.SoftSKUId;
 }
 
 BOOLEAN BoardPlatformFusion (VOID)
