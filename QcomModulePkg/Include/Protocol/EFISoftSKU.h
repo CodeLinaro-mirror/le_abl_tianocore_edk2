@@ -1,0 +1,210 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+#ifndef __EFI_SOFTSKU_H__
+#define __EFI_SOFTSKU_H__
+
+/*
+ * Protocol version.
+ */
+#define SOFT_SKU_REVISION 0x0000000000020000
+
+/*
+ *  Max number of soft SKU modules supported for each chip family
+ */
+#define SOFT_SKU_MODULE_MAX_NUM        16
+
+/*
+ *  Max number of dependent EFIs that Soft SKU needs for each chip family
+ */
+#define SOFT_SKU_DEPENDENCY_MAX_NUM    16
+
+/*
+ *  Max length in bytes for the soft SKU dependency name
+ */
+#define SOFT_SKU_DEPENDENCY_NAME_MAX_LEN    32
+
+/*  Protocol GUID definition */
+#define EFI_SOFT_SKU_PROTOCOL_GUID \
+{0xf917a796, 0x871b, 0x4595, {0x85, 0x5c, 0x95, 0x38, 0x87, 0x75, 0x2e, 0xa3}}
+
+/*
+ * External reference to the soft SKU Protocol GUID.
+ */
+extern EFI_GUID gQcomSoftSKUProtocolGuid;
+
+/* Soft SKU Status Type */
+typedef enum {
+  SOFT_SKU_STATUS_UNINITIALIZED  = 0x0,  /* soft SKU not initialized */
+  SOFT_SKU_STATUS_SUCCESS,               /* soft SKU Status Success */
+  SOFT_SKU_STATUS_FAIL                   /* soft SKU Status Fail */
+} EFI_SOFT_SKU_STATUS_TYPE;
+
+/* Soft SKU SWCFG Status Type */
+typedef enum {
+  SOFT_SKU_SWCFG_SUCCESS = 0,               /* soft SKU Status Success */
+  SOFT_SKU_SWCFG_FAIL = -1,                  /* soft SKU Status Fail */
+  SOFT_SKU_SWCFG_HW_IP_INVALID = -2,
+  SOFT_SKU_SWCFG_IP_INSTANCE_INVALID = -3,
+  SOFT_SKU_SWCFG_FEATURE_ID_INVALID =-4,
+} EFI_SOFT_SKU_SWCFG_STATUS_TYPE;
+
+/* Defines HW Instance IDs */
+typedef enum {
+  SOFT_SKU_SWCFG_IP_INSTANCE_0 = 0,
+  SOFT_SKU_SWCFG_IP_INSTANCE_1,
+  SOFT_SKU_SWCFG_IP_INSTANCE_2,
+  SOFT_SKU_SWCFG_IP_INSTANCE_3,
+  SOFT_SKU_SWCFG_IP_INSTANCE_4,
+  SOFT_SKU_SWCFG_IP_INSTANCE_MAX
+} SOFT_SKU_SWCFG_HW_IP_INSTANCE_ID;
+
+/* List of HW IPs */
+typedef enum {
+  SOFT_SKU_SWCFG_APSS_CPU = 0,
+  SOFT_SKU_SWCFG_GPU,
+  SOFT_SKU_SWCFG_NSP,
+  SOFT_SKU_SWCFG_HPASS_DSP,
+  SOFT_SKU_SWCFG_EVA,
+  SOFT_SKU_SWCFG_CAMERA,
+  SOFT_SKU_SWCFG_VIDEO,
+  SOFT_SKU_SWCFG_DISPLAY_DPU,
+  SOFT_SKU_SWCFG_EMAC,
+  SOFT_SKU_SWCFG_HW_IP_MAX
+} SOFT_SKU_SWCFG_HW_IP;
+
+/* Feature list */
+typedef enum {
+  SOFT_SKU_SWCFG_CHIP_ID = 0,
+  SOFT_SKU_SWCFG_CHIP_SKU_ID,
+  SOFT_SKU_SWCFG_SLT,
+  SOFT_SKU_SWCFG_INTEXT,
+  SOFT_SKU_SWCFG_PRODUCT_CFG,
+  SOFT_SKU_SWCFG_FUSA,
+  SOFT_SKU_SWCFG_EARLY_HPASS_BOOT,
+  SOFT_SKU_SWCFG_DDR_DENSITY,
+  SOFT_SKU_SWCFG_HPASS_DSP0_CONFIG,
+  SOFT_SKU_SWCFG_HPASS_DSP1_CONFIG,
+  SOFT_SKU_SWCFG_HPASS_DSP2_CONFIG,
+  SOFT_SKU_SWCFG_CPUCP_BOOT_CLUSTER,
+  SOFT_SKU_SWCFG_CPUCP_BOOT_CORE_IDX,
+  SOFT_SKU_SWCFG_SYS_APSS_CFGCPUPRESENT,
+  SOFT_SKU_SWCFG_QTV_DDR,
+  SOFT_SKU_SWCFG_QTV_DISPLAY,
+  SOFT_SKU_SWCFG_QTV_GPU,
+  SOFT_SKU_SWCFG_QTV_AUDIO,
+  SOFT_SKU_SWCFG_QTV_CAMERA,
+  SOFT_SKU_SWCFG_QTV_VIDEO,
+  SOFT_SKU_SWCFG_QTV_COMPUTE0_AI,
+  SOFT_SKU_SWCFG_QTV_COMPUTE1_AI,
+  SOFT_SKU_SWCFG_QTV_COMPUTE2_AI,
+  SOFT_SKU_SWCFG_QTV_COMPUTE3_AI,
+  SOFT_SKU_SWCFG_NCC0_PLL_L_LIMIT,
+  SOFT_SKU_SWCFG_NCC1_PLL_L_LIMIT,
+  SOFT_SKU_SWCFG_NCC2_PLL_L_LIMIT,
+  SOFT_SKU_SWCFG_NSP0_HMX_PLL_L_MAX,
+  SOFT_SKU_SWCFG_NSP0_HVX_PLL_L_MAX,
+  SOFT_SKU_SWCFG_NSP1_HMX_PLL_L_MAX,
+  SOFT_SKU_SWCFG_NSP1_HVX_PLL_L_MAX,
+  SOFT_SKU_SWCFG_NSP2_HMX_PLL_L_MAX,
+  SOFT_SKU_SWCFG_NSP2_HVX_PLL_L_MAX,
+  SOFT_SKU_SWCFG_NSP3_HMX_PLL_L_MAX,
+  SOFT_SKU_SWCFG_NSP3_HVX_PLL_L_MAX,
+  SOFT_SKU_SWCFG_HPASS_DSP0_PLL_L_MAX,
+  SOFT_SKU_SWCFG_HPASS_DSP1_PLL_L_MAX,
+  SOFT_SKU_SWCFG_HPASS_DSP2_PLL_L_MAX,
+  SOFT_SKU_SWCFG_MDSS0_PLL_L_MAX,
+  SOFT_SKU_SWCFG_MDSS1_PLL_L_MAX,
+  SOFT_SKU_SWCFG_GPU0_PLL_L_MAX,
+  SOFT_SKU_SWCFG_GPU1_PLL_L_MAX,
+  SOFT_SKU_SWCFG_HPASS_ADAS_EN,
+  SOFT_SKU_SWCFG_FEATURE_ID_MAX
+} SOFT_SKU_SWCFG_FEATURE_ID;
+
+/* safety mode */
+typedef enum {
+  SOFT_SKU_SWCFG_NON_SAFE = 0,
+  SOFT_SKU_SWCFG_SAFE
+} SOFT_SKU_SWCFG_SAFETY_CFG;
+
+/* Soft SKU ID Type */
+typedef enum {
+  SOFT_SKU_ID_FP1 = 0x1,  /*soft SKU Feature Package 1 (Low SKU) */
+  SOFT_SKU_ID_FP2,        /*soft SKU Feature Package 2 (Mid SKU) */
+  SOFT_SKU_ID_FP3,        /*soft SKU Feature Package 3 (High SKU) */
+  SOFT_SKU_ID_FP_B3= 0x7  /*soft SKU Feature Package FP_B3 (Baiwang) */
+} EFI_SOFT_SKU_ID_TYPE;
+
+/* record module name and execution status */
+typedef struct {
+  EFI_SOFT_SKU_STATUS_TYPE  eStatus;
+} EFI_SOFT_SKU_MODULE_INFO;
+
+/* This structure record the modules that support soft SKU */
+typedef struct {
+  UINT32                      uNumModules;
+  EFI_SOFT_SKU_MODULE_INFO    sInfo[SOFT_SKU_MODULE_MAX_NUM];
+} EFI_SOFT_SKU_STATUS_INFO;
+
+/* This structure record soft SKU status */
+typedef struct {
+  EFI_SOFT_SKU_STATUS_TYPE  eTALoadStatus;
+  EFI_SOFT_SKU_STATUS_INFO  sTAExeStatus;
+  EFI_SOFT_SKU_STATUS_TYPE  eTAUnloadStatus;
+} EFI_SOFT_SKU_STATUS;
+
+/* This structure record soft SKU ID */
+typedef struct {
+  EFI_SOFT_SKU_ID_TYPE  eSoftSKUId;       /* Soft SKU ID */
+} EFI_SOFT_SKU_ID;
+
+typedef
+EFI_STATUS (EFIAPI *EFI_SOFT_SKU_QUERY_STATUS)(
+  EFI_SOFT_SKU_STATUS *pStatus
+);
+
+typedef
+EFI_STATUS (EFIAPI *EFI_SOFT_SKU_QUERY_SKU_ID)(
+  EFI_SOFT_SKU_ID *pSKUId
+);
+
+typedef
+EFI_STATUS (EFIAPI *EFI_SOFT_SKU_CFG_GET_VERSION)(
+  UINT32 *Version
+);
+
+typedef
+EFI_STATUS (EFIAPI *EFI_SOFT_SKU_GET_FEATURE_STATUS)(
+  SOFT_SKU_SWCFG_FEATURE_ID FeatureID,
+  UINT32 *FeatureVal
+);
+
+typedef EFI_STATUS (EFIAPI *EFI_SOFT_SKU_GET_SAFETY_CONFIG)(
+  SOFT_SKU_SWCFG_HW_IP hw_ip,
+  SOFT_SKU_SWCFG_HW_IP_INSTANCE_ID InstanceID,
+  UINT32 *SafetyCfgVal
+);
+
+typedef EFI_STATUS (EFIAPI *EFI_SOFT_SKU_GET_IP_SKU_CONFIG)(
+  SOFT_SKU_SWCFG_HW_IP hw_ip,
+  SOFT_SKU_SWCFG_HW_IP_INSTANCE_ID InstanceID,
+  UINT32 *SkuCfgVal
+);
+
+/*===========================================================================
+  PROTOCOL INTERFACE
+===========================================================================*/
+
+typedef struct _EFI_QCOM_SOFT_SKU_PROTOCOL {
+  UINT64    Revision;
+  EFI_SOFT_SKU_QUERY_STATUS    SoftSKUQueryStatus;
+  EFI_SOFT_SKU_QUERY_SKU_ID    SoftSKUQuerySKUId;
+  EFI_SOFT_SKU_CFG_GET_VERSION    SoftSKUGetVersion;
+  EFI_SOFT_SKU_GET_FEATURE_STATUS    SoftSKUGetFeatureStatus;
+  EFI_SOFT_SKU_GET_SAFETY_CONFIG    SoftSKUGetSafetyConfig;
+  EFI_SOFT_SKU_GET_IP_SKU_CONFIG    SoftSKUGetIpSkuConfig;
+} EFI_QCOM_SOFT_SKU_PROTOCOL;
+
+#endif  /* __EFI_SOFTSKU_H__ */
