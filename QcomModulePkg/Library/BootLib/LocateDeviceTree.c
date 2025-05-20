@@ -153,29 +153,35 @@ DeviceTreeCompatible (VOID *dtb,
   const char *board_prop = NULL;
   const char *pmic_prop = NULL;
   const char *oem_prop = NULL;
+  const char *sku_prop = NULL;
   char *model = NULL;
   struct dt_entry *dt_entry_array = NULL;
   struct board_id *board_data = NULL;
   struct plat_id *platform_data = NULL;
   struct pmic_id *pmic_data = NULL;
   struct oem_id *oem_data = NULL;
+  struct sku_id *sku_data = NULL;
   int len;
   int len_board_id;
   int len_plat_id;
   int min_plat_id_len = 0;
   int min_oem_id_len = 0;
+  int min_sku_id_len = 0;
   int len_pmic_id;
   int len_oem_id;
+  int len_sku_id;
   UINT32 dtb_ver;
   UINT64 NumEntries = 0;
   UINT64 i;
-  UINT32 j, k, n, o;
+  UINT32 j, k, n, o, p;
   UINT32 msm_data_count;
   UINT32 board_data_count;
   UINT32 pmic_data_count;
   UINT32 oem_data_count;
+  UINT32 sku_data_count;
   BOOLEAN Result = FALSE;
   BOOLEAN ValidOemData = FALSE;
+  BOOLEAN ValidSkuData = FALSE;
   static UINT32 DtbCount;
 
   root_offset = fdt_path_offset (dtb, "/");
@@ -251,10 +257,26 @@ DeviceTreeCompatible (VOID *dtb,
     ValidOemData = TRUE;
   }
 
+  /* Get the sku-id prop from DTB */
+  min_sku_id_len = SKU_ID_SIZE;
+  sku_prop = (const char *)fdt_getprop (dtb, root_offset, "qcom,sku-id",
+                                          &len_sku_id);
+  if (!sku_prop ||
+     (len_sku_id <= 0)) {
+    DEBUG ((EFI_D_VERBOSE, "qcom,sku-id entry not found\n"));
+  } else if (len_sku_id % min_sku_id_len) {
+    DEBUG ((EFI_D_ERROR,
+            "qcom, sku-id in device tree is (%d) not a multiple of (%d)\n",
+            len_sku_id, min_sku_id_len));
+  } else {
+    ValidSkuData = TRUE;
+  }
+
   if (dtb_ver == DEV_TREE_VERSION_V2 || dtb_ver == DEV_TREE_VERSION_V3) {
     board_data_count = (len_board_id / BOARD_ID_SIZE);
     msm_data_count = (len_plat_id / PLAT_ID_SIZE);
     oem_data_count = (len_oem_id / OEM_ID_SIZE);
+    sku_data_count = (len_sku_id / SKU_ID_SIZE);
     /* If dtb version is v2.0, the pmic_data_count will be <= 0 */
     pmic_data_count = (len_pmic_id / PMIC_ID_SIZE);
 
@@ -283,6 +305,15 @@ DeviceTreeCompatible (VOID *dtb,
         DEBUG ((EFI_D_ERROR, "Failed to allocate memory for oem_data\n"));
         goto Exit;
        }
+    }
+
+    if (ValidSkuData) {
+      sku_data = (struct sku_id *)AllocateZeroPool (
+        sizeof (struct sku_id) * (len_sku_id / SKU_ID_SIZE));
+      if (!sku_data) {
+        DEBUG ((EFI_D_ERROR, "Failed to allocate memory for sku_data\n"));
+        goto Exit;
+      }
     }
 
     if (dtb_ver == DEV_TREE_VERSION_V3) {
@@ -351,6 +382,16 @@ DeviceTreeCompatible (VOID *dtb,
       }
     }
 
+    if (ValidSkuData) {
+      /* Extract SKU data from DTB */
+      for (i = 0; i < sku_data_count; i++) {
+        sku_data[i].sku_variant_id =
+            fdt32_to_cpu (((struct sku_id *)sku_prop)->sku_variant_id);
+        len_sku_id -= sizeof (struct sku_id);
+        sku_prop += sizeof (struct sku_id);
+      }
+    }
+
     if ((pmic_data_count != 0) &&
       (MAX_UINT64 / pmic_data_count < (msm_data_count * board_data_count))) {
         DEBUG ((EFI_D_ERROR, "NumEntries exceeds MAX_UINT64\n"));
@@ -363,6 +404,11 @@ DeviceTreeCompatible (VOID *dtb,
     if (ValidOemData) {
       /* Need to merge OEM ID data to dt entry structure */
        NumEntries  *= oem_data_count;
+    }
+
+    if (ValidSkuData) {
+      /* Need to merge SKU ID data to dt entry structure */
+       NumEntries  *= sku_data_count;
     }
 
     if (dtb_ver == DEV_TREE_VERSION_V3 &&
@@ -392,7 +438,32 @@ DeviceTreeCompatible (VOID *dtb,
       for (j = 0; j < board_data_count; j++) {
         if (dtb_ver == DEV_TREE_VERSION_V3 &&
                      pmic_prop &&
-                     ValidOemData) {
+                     ValidOemData &&
+                     ValidSkuData) {
+          for (n = 0; n < pmic_data_count; n++) {
+            for (o = 0; o < oem_data_count; o++) {
+              for (p = 0; p < sku_data_count; p++) {
+                dt_entry_array[k].platform_id = platform_data[i].platform_id;
+                dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
+                dt_entry_array[k].variant_id = board_data[j].variant_id;
+                dt_entry_array[k].board_hw_subtype =
+                                              board_data[j].platform_subtype;
+                dt_entry_array[k].pmic_rev[0] = pmic_data[n].pmic_version[0];
+                dt_entry_array[k].pmic_rev[1] = pmic_data[n].pmic_version[1];
+                dt_entry_array[k].pmic_rev[2] = pmic_data[n].pmic_version[2];
+                dt_entry_array[k].pmic_rev[3] = pmic_data[n].pmic_version[3];
+                dt_entry_array[k].offset = (UINT64)dtb;
+                dt_entry_array[k].size = dtb_size;
+                dt_entry_array[k].Idx = DtbCount;
+                dt_entry_array[k].oem_id = oem_data[o].oem_variant_id;
+                dt_entry_array[k].sku_id = sku_data[p].sku_variant_id;
+                k++;
+              }
+            }
+          }
+        } else if (dtb_ver == DEV_TREE_VERSION_V3 &&
+                                        pmic_prop &&
+                                       ValidOemData) {
           for (n = 0; n < pmic_data_count; n++) {
             for (o = 0; o < oem_data_count; o++) {
               dt_entry_array[k].platform_id = platform_data[i].platform_id;
@@ -411,13 +482,55 @@ DeviceTreeCompatible (VOID *dtb,
               k++;
             }
           }
-        } else if (dtb_ver == DEV_TREE_VERSION_V3 && pmic_prop) {
+        } else if (dtb_ver == DEV_TREE_VERSION_V3 &&
+                                          pmic_prop &&
+                                          ValidSkuData) {
+          for (n = 0; n < pmic_data_count; n++) {
+            for (p = 0; p < sku_data_count; p++) {
+              dt_entry_array[k].platform_id = platform_data[i].platform_id;
+              dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
+              dt_entry_array[k].variant_id = board_data[j].variant_id;
+              dt_entry_array[k].board_hw_subtype =
+                                            board_data[j].platform_subtype;
+              dt_entry_array[k].pmic_rev[0] = pmic_data[n].pmic_version[0];
+              dt_entry_array[k].pmic_rev[1] = pmic_data[n].pmic_version[1];
+              dt_entry_array[k].pmic_rev[2] = pmic_data[n].pmic_version[2];
+              dt_entry_array[k].pmic_rev[3] = pmic_data[n].pmic_version[3];
+              dt_entry_array[k].offset = (UINT64)dtb;
+              dt_entry_array[k].size = dtb_size;
+              dt_entry_array[k].Idx = DtbCount;
+              dt_entry_array[k].sku_id = sku_data[p].sku_variant_id;
+              k++;
+            }
+          }
+        } else if (ValidOemData &&
+                     ValidSkuData) {
+          for (o = 0; o < oem_data_count; o++) {
+            for (p = 0; p < sku_data_count; p++) {
+              dt_entry_array[k].platform_id = platform_data[i].platform_id;
+              dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
+              dt_entry_array[k].variant_id = board_data[j].variant_id;
+              dt_entry_array[k].board_hw_subtype =
+                                  board_data[j].platform_subtype;
+              dt_entry_array[k].pmic_rev[0] = BoardPmicTarget (0);
+              dt_entry_array[k].pmic_rev[1] = BoardPmicTarget (1);
+              dt_entry_array[k].pmic_rev[2] = BoardPmicTarget (2);
+              dt_entry_array[k].pmic_rev[3] = BoardPmicTarget (3);
+              dt_entry_array[k].offset = (UINT64)dtb;
+              dt_entry_array[k].size = dtb_size;
+              dt_entry_array[k].Idx = DtbCount;
+              dt_entry_array[k].oem_id = oem_data[o].oem_variant_id;
+              dt_entry_array[k].sku_id = sku_data[p].sku_variant_id;
+              k++;
+            }
+          }
+        } else if (dtb_ver == DEV_TREE_VERSION_V3 &&
+                   pmic_prop) {
           for (n = 0; n < pmic_data_count; n++) {
             dt_entry_array[k].platform_id = platform_data[i].platform_id;
             dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
             dt_entry_array[k].variant_id = board_data[j].variant_id;
-            dt_entry_array[k].board_hw_subtype =
-                                          board_data[j].platform_subtype;
+            dt_entry_array[k].board_hw_subtype = board_data[j].platform_subtype;
             dt_entry_array[k].pmic_rev[0] = pmic_data[n].pmic_version[0];
             dt_entry_array[k].pmic_rev[1] = pmic_data[n].pmic_version[1];
             dt_entry_array[k].pmic_rev[2] = pmic_data[n].pmic_version[2];
@@ -428,22 +541,38 @@ DeviceTreeCompatible (VOID *dtb,
             k++;
           }
         } else if (ValidOemData) {
-           for (o = 0; o < oem_data_count; o++) {
-             dt_entry_array[k].platform_id = platform_data[i].platform_id;
-             dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
-             dt_entry_array[k].variant_id = board_data[j].variant_id;
-             dt_entry_array[k].board_hw_subtype =
-                                  board_data[j].platform_subtype;
-             dt_entry_array[k].pmic_rev[0] = BoardPmicTarget (0);
-             dt_entry_array[k].pmic_rev[1] = BoardPmicTarget (1);
-             dt_entry_array[k].pmic_rev[2] = BoardPmicTarget (2);
-             dt_entry_array[k].pmic_rev[3] = BoardPmicTarget (3);
-             dt_entry_array[k].offset = (UINT64)dtb;
-             dt_entry_array[k].size = dtb_size;
-             dt_entry_array[k].Idx = DtbCount;
-             dt_entry_array[k].oem_id = oem_data[o].oem_variant_id;
-             k++;
-           }
+          for (o = 0; o < oem_data_count; o++) {
+            dt_entry_array[k].platform_id = platform_data[i].platform_id;
+            dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
+            dt_entry_array[k].variant_id = board_data[j].variant_id;
+            dt_entry_array[k].board_hw_subtype = board_data[j].platform_subtype;
+            dt_entry_array[k].pmic_rev[0] = BoardPmicTarget (0);
+            dt_entry_array[k].pmic_rev[1] = BoardPmicTarget (1);
+            dt_entry_array[k].pmic_rev[2] = BoardPmicTarget (2);
+            dt_entry_array[k].pmic_rev[3] = BoardPmicTarget (3);
+            dt_entry_array[k].offset = (UINT64)dtb;
+            dt_entry_array[k].size = dtb_size;
+            dt_entry_array[k].Idx = DtbCount;
+            dt_entry_array[k].oem_id = oem_data[o].oem_variant_id;
+            k++;
+          }
+        } else if (ValidSkuData) {
+          for (p = 0; p < sku_data_count; p++) {
+            dt_entry_array[k].platform_id = platform_data[i].platform_id;
+            dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
+            dt_entry_array[k].variant_id = board_data[j].variant_id;
+            dt_entry_array[k].board_hw_subtype =
+                                 board_data[j].platform_subtype;
+            dt_entry_array[k].pmic_rev[0] = BoardPmicTarget (0);
+            dt_entry_array[k].pmic_rev[1] = BoardPmicTarget (1);
+            dt_entry_array[k].pmic_rev[2] = BoardPmicTarget (2);
+            dt_entry_array[k].pmic_rev[3] = BoardPmicTarget (3);
+            dt_entry_array[k].offset = (UINT64)dtb;
+            dt_entry_array[k].size = dtb_size;
+            dt_entry_array[k].Idx = DtbCount;
+            dt_entry_array[k].sku_id = sku_data[p].sku_variant_id;
+            k++;
+          }
         } else {
           dt_entry_array[k].platform_id = platform_data[i].platform_id;
           dt_entry_array[k].soc_rev = platform_data[i].soc_rev;
@@ -1418,7 +1547,8 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
       (cur_dt_entry->pmic_rev[1] <= BoardPmicTarget (1)) &&
       (cur_dt_entry->pmic_rev[2] <= BoardPmicTarget (2)) &&
       (cur_dt_entry->pmic_rev[3] <= BoardPmicTarget (3)) &&
-      (cur_dt_entry->oem_id <= BoardOEMVariantId ())) {
+      (cur_dt_entry->oem_id <= BoardOEMVariantId ()) &&
+      (cur_dt_entry->sku_id <= BoardSKUId ())) {
 
     dt_node_tmp = dt_entry_list_init ();
     if (!dt_node_tmp) {
@@ -1432,7 +1562,7 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
     DEBUG (
         (EFI_D_VERBOSE,
          "Add DTB entry "
-         "0x%x/%08x/0x%08x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+         "0x%x/%08x/0x%08x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
          dt_node_tmp->dt_entry_m->platform_id,
          dt_node_tmp->dt_entry_m->variant_id,
          dt_node_tmp->dt_entry_m->board_hw_subtype,
@@ -1440,7 +1570,7 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
          dt_node_tmp->dt_entry_m->pmic_rev[1],
          dt_node_tmp->dt_entry_m->pmic_rev[2],
          dt_node_tmp->dt_entry_m->pmic_rev[3], dt_node_tmp->dt_entry_m->offset,
-         dt_node_tmp->dt_entry_m->oem_id,
+         dt_node_tmp->dt_entry_m->oem_id, dt_node_tmp->dt_entry_m->sku_id,
          dt_node_tmp->dt_entry_m->size));
 
     insert_dt_entry_in_queue (dt_list, dt_node_tmp);
