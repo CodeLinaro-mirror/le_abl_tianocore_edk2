@@ -48,6 +48,9 @@ typedef struct {
 } KMRotAndBootState;
 
 EFI_STATUS
+SetBootTamperState(boot_state_t Color);
+
+EFI_STATUS
 KeyMasterSetRotAndBootState (KMRotAndBootState *BootState);
 
 EFI_STATUS

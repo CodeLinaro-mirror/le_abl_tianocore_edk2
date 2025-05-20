@@ -209,6 +209,33 @@ KeyMasterStartApp (KMHandle *Handle)
 }
 
 EFI_STATUS
+SetBootTamperState(boot_state_t Color)
+{
+  EFI_STATUS Status     = EFI_SUCCESS;
+  BOOLEAN secure_device = FALSE;
+
+  /* Provide boot tamper state to TZ */
+  if (((Status = IsSecureDevice (&secure_device)) == EFI_SUCCESS) &&
+      secure_device && (Color != GREEN)) {
+    if (AllowSetFuse ()) {
+      Status = SetFuse (TZ_HLOS_IMG_TAMPER_FUSE);
+      if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "KeyMasterSetRotAndBootState: "
+                             "SetFuse (TZ_HLOS_IMG_TAMPER_FUSE) fails!\n"));
+        return Status;
+      }
+      Status = SetFuse (TZ_HLOS_TAMPER_NOTIFY_FUSE);
+      if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "KeyMasterSetRotAndBootState: "
+                             "SetFuse (TZ_HLOS_TAMPER_NOTIFY_FUSE) fails!\n"));
+        return Status;
+      }
+    }
+  }
+  return Status;
+}
+
+EFI_STATUS
 KeyMasterSetRotAndBootState (KMRotAndBootState *BootState)
 {
   EFI_STATUS Status = EFI_SUCCESS;
@@ -222,7 +249,6 @@ KeyMasterSetRotAndBootState (KMRotAndBootState *BootState)
   KMSetRotRsp RotRsp = {0};
   KMSetBootStateReq BootStateReq = {0};
   KMSetBootStateRsp BootStateRsp = {0};
-  BOOLEAN secure_device = FALSE;
 
   if (BootState == NULL) {
     DEBUG ((EFI_D_ERROR, "Invalid parameter BootState\n"));
@@ -314,23 +340,11 @@ KeyMasterSetRotAndBootState (KMRotAndBootState *BootState)
   }
 
   /* Provide boot tamper state to TZ */
-  if (((Status = IsSecureDevice (&secure_device)) == EFI_SUCCESS) &&
-      secure_device && (BootState->Color != GREEN)) {
-    if (AllowSetFuse ()) {
-      Status = SetFuse (TZ_HLOS_IMG_TAMPER_FUSE);
-      if (Status != EFI_SUCCESS) {
-        DEBUG ((EFI_D_ERROR, "KeyMasterSetRotAndBootState: "
-                             "SetFuse (TZ_HLOS_IMG_TAMPER_FUSE) fails!\n"));
-        return Status;
-      }
-      Status = SetFuse (TZ_HLOS_TAMPER_NOTIFY_FUSE);
-      if (Status != EFI_SUCCESS) {
-        DEBUG ((EFI_D_ERROR, "KeyMasterSetRotAndBootState: "
-                             "SetFuse (TZ_HLOS_TAMPER_NOTIFY_FUSE) fails!\n"));
-        return Status;
-      }
-    }
+  Status = SetBootTamperState(BootState->Color);
+  if (Status != EFI_SUCCESS) {
+    return Status;
   }
+
   DEBUG ((EFI_D_VERBOSE, "KeyMasterSetRotAndBootState success\n"));
   return Status;
 }

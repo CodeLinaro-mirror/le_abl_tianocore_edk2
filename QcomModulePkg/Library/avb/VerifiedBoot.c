@@ -1088,6 +1088,9 @@ LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume)
   /* bring up keymaster, needed for Android GVM */
   GUARD (KeyMasterStart ());
 
+  /* Provide boot tamper state to TZ */
+  GUARD (SetBootTamperState(Info->BootState));
+
 out:
   if (Status != EFI_SUCCESS) {
     if (SlotData != NULL) {
