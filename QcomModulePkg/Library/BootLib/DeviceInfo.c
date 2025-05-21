@@ -171,6 +171,8 @@ SetDeviceUnlockValue (UINT32 Type, BOOLEAN State)
   EFI_STATUS Status = EFI_SUCCESS;
   struct RecoveryMessage Msg;
   EFI_GUID Ptype = gEfiMiscPartitionGuid;
+  EFI_GUID GvmPtype = gEfiGvmMiscPartitionGuid;
+
   MemCardType CardType = UNKNOWN;
 
   switch (Type) {
@@ -211,6 +213,25 @@ SetDeviceUnlockValue (UINT32 Type, BOOLEAN State)
     }
 
     Status = WriteToPartition (&Ptype, &Msg, sizeof (Msg));
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Fail to write recovery msg: %r", Status));
+      return Status;
+    }
+
+    /* Add boot-recovery command to gvm message to boot into recovery directly */
+    Status = AsciiStrnCpyS (Msg.command, sizeof (Msg.command),
+                          RECOVERY_BOOT_RECOVERY, AsciiStrLen (RECOVERY_BOOT_RECOVERY));
+
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Fail to prepare command: %r", Status));
+      return Status;
+    }
+
+    Status = WriteToPartition (&GvmPtype, &Msg, sizeof (Msg));
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Fail to write gvm recovery msg: %r", Status));
+      return Status;
+    }
   }
 
   return Status;

@@ -121,6 +121,7 @@
 	gEfiLogFSPartitionGuid
 	gEfiNandUserPartitionGuid
 	gEfiMiscPartitionGuid
+	gEfiGvmMiscPartitionGuid
 	gEfiRNGAlgRawGuid
 	gEfiUfsLU0Guid
 	gEfiUfsLU1Guid
