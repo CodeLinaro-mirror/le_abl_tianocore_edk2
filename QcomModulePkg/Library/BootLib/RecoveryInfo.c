@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -12,12 +12,18 @@
 #include <VerifiedBoot.h>
 
 
+STATIC EFI_RECOVERYINFO_PROTOCOL *pRecoveryInfoProtocol = NULL;
+RecoveryBootVariableInfo RecoveryBootVarInfo;
+STATIC BootSetType BootSet = SET_INVALID;
 STATIC INT64 HasRecoveryInfo = -1;
+STATIC UINT32 Count = 1;
+
+extern BOOLEAN HasRISetActiveSlot;
+extern BOOLEAN HasRIGetVarAll;
 
 BOOLEAN IsRecoveryInfo ()
 {
   EFI_STATUS Status = EFI_SUCCESS ;
-  EFI_RECOVERYINFO_PROTOCOL *pRecoveryInfoProtocol = NULL;
   RECOVERY_STATUS_STATE RecoveryState;
 
   if (HasRecoveryInfo == -1 ) {
@@ -40,6 +46,18 @@ BOOLEAN IsRecoveryInfo ()
     }
   }
 
+  if (Count == 1 &&
+      HasRecoveryInfo) {
+    if (pRecoveryInfoProtocol->Revision ==
+        EFI_RECOVERYINFO_PROTOCOL_REVISION_V1) {
+      HasRISetActiveSlot = TRUE;
+    }
+    if (pRecoveryInfoProtocol->Revision ==
+        EFI_RECOVERYINFO_PROTOCOL_REVISION_V1) {
+      HasRIGetVarAll = TRUE;
+    }
+    Count++;
+  }
   return (HasRecoveryInfo == 1);
 }
 
@@ -93,4 +111,35 @@ EFI_STATUS RI_HandleFailedSlot (Slot ActiveSlot)
   Status = pRecoveryInfoProtocol->HandleFailedSet (pRecoveryInfoProtocol,
                                                     BootSet);
   return EFI_UNSUPPORTED;
+}
+
+EFI_STATUS RI_SetActiveSlot (Slot *NewSlot)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+
+  if (NewSlot == NULL) {
+    DEBUG ((EFI_D_ERROR, "SetActiveSlot: input parameter invalid\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!StrCmp (NewSlot->Suffix, (CONST CHAR16 *)L"_a")) {
+    BootSet = SET_A;
+  } else if (!StrCmp (NewSlot->Suffix, (CONST CHAR16 *)L"_b")) {
+    BootSet = SET_B;
+  }
+
+  Status = pRecoveryInfoProtocol->SetActiveSlot (pRecoveryInfoProtocol,
+                                                  BootSet);
+
+  return Status;
+}
+
+EFI_STATUS RI_GetVarAll ()
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+
+  Status = pRecoveryInfoProtocol->GetVarAll (pRecoveryInfoProtocol,
+                                              &RecoveryBootVarInfo);
+
+  return Status;
 }

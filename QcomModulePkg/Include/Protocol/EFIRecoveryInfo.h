@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 /**
@@ -40,7 +40,9 @@ typedef struct _EFI_RECOVERYINFO_PROTOCOL EFI_RECOVERYINFO_PROTOCOL;
 MACRO DECLARATIONS
 ===========================================================================*/
 /* Protocol version. */
-#define EFI_RECOVERYINFO_PROTOCOL_REVISION 0x00010000
+#define EFI_RECOVERYINFO_PROTOCOL_REVISION EFI_RECOVERYINFO_PROTOCOL_REVISION_V0
+#define EFI_RECOVERYINFO_PROTOCOL_REVISION_V0 0x00010000
+#define EFI_RECOVERYINFO_PROTOCOL_REVISION_V1 0x00010001
 
 /* Protocol GUID definition */
 #define EFI_RECOVERYINFO_PROTOCOL_GUID \
@@ -60,12 +62,12 @@ TYPE DEFINITIONS
 @{ */
 /* Recovery status enum type */
 typedef enum {
-    RECOVERY_INFO_NO_RECOVERY    = 0x0,/* GPIO_BASED_BOOT_SELECTION fuse bit
-                                         is blown */
-    RECOVERY_INFO_PARTITION_FAIL = 0x1,/* Recovery Info Partition not present
-                                         or fail to read */
-    RECOVERY_INFO_TRIAL_BOOT     = 0x2,/* Trial Boot is enabled */
-    RECOVERY_INFO_RECOVERY       = 0x3,/* Recovery Info is valid */
+    RECOVERY_INFO_NO_RECOVERY        = 0x0,  /* GPIO_BASED_BOOT_SELECTION fuse
+                                                bit is blown */
+    RECOVERY_INFO_PARTITION_FAIL     = 0x1,  /* Recovery Info Partition not
+                                                present or fail to read */
+    RECOVERY_INFO_TRIAL_BOOT         = 0x2,  /* Trial Boot is enabled */
+    RECOVERY_INFO_RECOVERY           = 0x3,  /* Recovery Info is valid */
 }RECOVERY_STATUS_STATE;
 /** @} */
 
@@ -78,6 +80,24 @@ typedef enum {
     SET_INVALID       = 0xFFFF,
 }BootSetType;
 /** @} */
+
+/** @addtogroup EFI_RECOVERYINFO_PROTOCOL_data
+@ */
+/*      recovery and trial boot variables info struct type
+*       Structure defination to hold all recovery and trial boot info
+*/
+typedef struct  __attribute__ ((packed)) _RecoveryBootVariableInfo
+{
+    BOOLEAN           IsBootableSetA;
+    BOOLEAN           IsBootableSetB;
+    BOOLEAN           MultiSlotBoot;
+    BootSetType       ActiveBootSet;
+    UINT32            RetryCountSlotA;
+    UINT32            RetryCountSlotB;
+    UINT32            Reserved1;
+    UINT32            Reserved2;
+    UINT32            Reserved3;
+} RecoveryBootVariableInfo;
 
 /*=============================================================================
 
@@ -171,6 +191,64 @@ EFI_STATUS
    IN BootSetType                FailedBootSet
    );
 
+/* ============================================================================
+**  Function : EFI_Set_Active_Slot
+** ============================================================================
+*/
+/** @ingroup EFI_RECOVERYINFO_PROTOCOL_apis
+  @par Summary
+  Switch slot to given BootSet if health is good, device should reset to boot
+  from switched slot.
+
+  @param[in]     This        Pointer to the EFI_RECOVERYINFO_PROTOCOL instance.
+  @param[in]     BootSet     Boot set to switch the slot.
+
+  @return
+  EFI_SUCCESS                   -- Slot switch completed successfully. \n
+  EFI_INVALID_PARAMETER         -- Input parameter is INVALID. \n
+  EFI_UNSUPPORTED               -- In case of GPIO_BASED_BOOT_SELECTION fuse is
+                                   blown or recoveryinfo Partiton Failure. \n
+  EFI_ABORTED                   -- In case of both BootSet and active boot set
+                                   are same. \n
+  EFI_VOLUME_CORRUPTED          -- Health of BootSet is bad. \n
+*/
+
+typedef
+EFI_STATUS
+(EFIAPI *EFI_SET_ACTIVE_SLOT)(
+   IN EFI_RECOVERYINFO_PROTOCOL  *This,
+   IN BootSetType               BootSet
+   );
+
+/* ============================================================================
+**  Function : EFI_Get_Var_All
+** ============================================================================
+*/
+/** @ingroup EFI_RECOVERYINFO_PROTOCOL_apis
+  @par Summary
+  Populate the structure RecoveryBootVariableInfo
+
+  @param[in]       This                         Pointer to the
+                                                EFI_RECOVERYINFO_PROTOCOL
+                                                instance.
+  @param[in, out]  RecoveryBootVariableInfoPtr  Pointer to a
+                                                RecoveryBootVariableInfo passed
+                                                by the caller that will be
+                                                populated by the driver.
+
+  @return
+  EFI_SUCCESS                   -- Function completed successfully. \n
+  EFI_INVALID_PARAMETER         -- Input parameter is INVALID. \n
+  EFI_UNSUPPORTED               -- In case of GPIO_BASED_BOOT_SELECTION fuse
+                                   is blown or recoveryinfo Partiton Failure. \n
+*/
+
+typedef
+EFI_STATUS
+(EFIAPI *EFI_GET_VAR_ALL)(
+   IN EFI_RECOVERYINFO_PROTOCOL  *This,
+   OUT RecoveryBootVariableInfo *RecoveryBootVariableInfoPtr
+   );
 
 
 /*===========================================================================
@@ -187,6 +265,8 @@ struct _EFI_RECOVERYINFO_PROTOCOL {
    EFI_GET_RECOVERY_STATE     GetRecoveryState;
    EFI_GET_BOOT_SET           GetBootSet;
    EFI_HANDLE_FAILED_SET      HandleFailedSet;
+   EFI_SET_ACTIVE_SLOT        SetActiveSlot;
+   EFI_GET_VAR_ALL            GetVarAll;
 };
 
 #endif /* __EFIRECOVERYINFO_H__ */
