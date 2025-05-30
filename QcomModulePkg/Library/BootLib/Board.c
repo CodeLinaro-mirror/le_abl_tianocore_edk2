@@ -548,17 +548,17 @@ VOID BoardSoftSKU (UINT32 *SKUId)
     *SKUId = BAD_SOFTSKU_ID;
   }
 
-  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_CHIP_SKU_ID, &SwConfig);
+  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_CHIP_SKU_ID, &SubSKU);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "Failed to get Soft SKU Feature Data\n"));
-    SwConfig = BAD_SOFTSKU_ID;
+    DEBUG ((EFI_D_ERROR, "Failed to get Sub SKU Data\n"));
+    SubSKU = BAD_SOFTSKU_ID;
     return;
   }
 
-  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_PRODUCT_CFG, &SubSKU);
+  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_PRODUCT_CFG, &SwConfig);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "Failed to get Soft SKU Feature Data\n"));
-    SubSKU = BAD_SOFTSKU_ID;
+    DEBUG ((EFI_D_ERROR, "Failed to get Sw Config Data\n"));
+    SwConfig = BAD_SOFTSKU_ID;
     return;
   }
 
