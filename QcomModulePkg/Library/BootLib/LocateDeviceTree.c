@@ -1748,6 +1748,15 @@ update_dtb_entry_node (struct dt_entry_node *dt_list, UINT32 dtb_info)
       current_info = dt_node_tmp1->dt_entry_m->pmic_rev[3];
       board_info = BoardPmicTarget (3);
       break;
+    case DTB_SKU:
+      current_info = dt_node_tmp1->dt_entry_m->sku_id;
+      board_info = BoardSKUId ();
+      break;
+    case DTB_OEM:
+      current_info = dt_node_tmp1->dt_entry_m->oem_id;
+      board_info = BoardOEMVariantId ();
+      break;
+
     default:
       DEBUG ((EFI_D_ERROR,
               "ERROR: Unsupported version (%d) in dt node check \n", dtb_info));
@@ -1876,6 +1885,8 @@ platform_dt_match_best (struct dt_entry_node *dt_list)
   update_dtb_entry_node (dt_list, DTB_PMIC1);
   update_dtb_entry_node (dt_list, DTB_PMIC2);
   update_dtb_entry_node (dt_list, DTB_PMIC3);
+  update_dtb_entry_node (dt_list, DTB_SKU);
+  update_dtb_entry_node (dt_list, DTB_OEM);
 
   list_for_every_entry (&dt_list->node, dt_node_tmp1, dt_node, node)
   {
