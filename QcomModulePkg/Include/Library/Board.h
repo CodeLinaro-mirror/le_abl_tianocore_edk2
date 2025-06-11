@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -76,6 +76,7 @@
 #include <Protocol/EFIPlatformInfo.h>
 #include <Protocol/EFIPmicVersion.h>
 #include <Protocol/EFIRamPartition.h>
+#include <Protocol/EFISoftSKU.h>
 
 #define HANDLE_MAX_INFO_LIST 128
 #define CHIP_BASE_BAND_LEN 4
@@ -123,7 +124,22 @@ struct BoardInfo {
   EFIChipInfoVersionType ChipVersion;
   EFIChipInfoFoundryIdType FoundryId;
   UINT32 HlosSubType;
+  UINT32 SoftSKUId;
 };
+
+/*
+ qcom,sku-id=<0xABCDEFGH>
+
+ Each Nibble holds a configuration value
+
+ Currently H will track Sub SKU ID and F will track Software Config.
+*/
+
+#define BAD_SOFTSKU_ID  0xBADDEBAD
+#define SOFTSKU_ID_SUBSKU_SHIFT  0
+#define SOFTSKU_ID_SUBSKU_MASK  (0xf << SOFTSKU_ID_SUBSKU_SHIFT)
+#define SOFTSKU_ID_SWCONFIG_SHFIT  8
+#define SOFTSKU_ID_SWCONFIG_MASK  (0xf << SOFTSKU_ID_SWCONFIG_SHFIT)
 
 EFI_STATUS
 BaseMem (UINT64 *BaseMemory);
@@ -164,4 +180,6 @@ VOID GetPageSize (UINT32 *PageSize);
 EFI_STATUS GetDdrSize (UINT64 *DdrSize);
 EFI_STATUS BoardDdrType (UINT32 *Type);
 UINT32 BoardPlatformHlosSubType (VOID);
+VOID BoardSoftSKU (UINT32 *SKUId);
+UINT32 BoardSKUId (VOID);
 #endif

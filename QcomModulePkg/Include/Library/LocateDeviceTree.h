@@ -29,7 +29,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -237,6 +237,8 @@ struct dt_entry {
   UINT64 offset;
   UINT32 size;
   UINT32 Idx;
+  UINT32 oem_id;
+  UINT32 sku_id;
 };
 
 /*Struct def for device tree entry*/
@@ -283,9 +285,15 @@ struct oem_id {
   UINT32 oem_variant_id;
 };
 
+struct sku_id {
+  UINT32 sku_variant_id;
+};
+
 #define PLAT_ID_SIZE    sizeof (struct plat_id)
 #define BOARD_ID_SIZE   sizeof (struct board_id)
 #define PMIC_ID_SIZE    sizeof (struct pmic_id)
+#define OEM_ID_SIZE    sizeof (struct oem_id)
+#define SKU_ID_SIZE    sizeof (struct sku_id)
 
 struct dt_mem_node_info {
   UINT32 offset;

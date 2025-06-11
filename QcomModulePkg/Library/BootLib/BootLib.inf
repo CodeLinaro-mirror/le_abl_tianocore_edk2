@@ -171,6 +171,7 @@
 	gEfiRecoveryInfoProtocolGuid
 	gEfiIpccProtocolGuid
 	gEfiShadowRegCommProtocolGuid
+	gQcomSoftSKUProtocolGuid
 
 [FixedPcd]
 	gArmTokenSpaceGuid.PcdSystemMemoryBase
