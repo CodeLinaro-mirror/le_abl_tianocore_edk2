@@ -312,6 +312,8 @@ enum dt_entry_info {
   DTB_PMIC2,
   DTB_PMIC3,
   DTB_PMIC_MODEL,
+  DTB_SKU,
+  DTB_OEM,
   DTB_PANEL_TYPE,
   DTB_BOOT_DEVICE,
 };

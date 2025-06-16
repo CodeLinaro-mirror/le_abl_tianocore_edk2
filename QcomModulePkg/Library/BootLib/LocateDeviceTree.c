@@ -1748,6 +1748,15 @@ update_dtb_entry_node (struct dt_entry_node *dt_list, UINT32 dtb_info)
       current_info = dt_node_tmp1->dt_entry_m->pmic_rev[3];
       board_info = BoardPmicTarget (3);
       break;
+    case DTB_SKU:
+      current_info = dt_node_tmp1->dt_entry_m->sku_id;
+      board_info = BoardSKUId ();
+      break;
+    case DTB_OEM:
+      current_info = dt_node_tmp1->dt_entry_m->oem_id;
+      board_info = BoardOEMVariantId ();
+      break;
+
     default:
       DEBUG ((EFI_D_ERROR,
               "ERROR: Unsupported version (%d) in dt node check \n", dtb_info));
@@ -1763,8 +1772,8 @@ update_dtb_entry_node (struct dt_entry_node *dt_list, UINT32 dtb_info)
     }
     if (current_info < best_info) {
       DEBUG (
-          (EFI_D_ERROR,
-           "Delete don't fit DTB entry %u/%08x/0x%08x/%x/%x/%x/%x/%x/%x/%x\n",
+          (EFI_D_VERBOSE, "Delete DTB entry(current dtb < best dtb)"
+	  " %u/%08x/0x%08x/%x/%x/%x/%x/%x/%x/%x/%x/%x\n",
            dt_node_tmp1->dt_entry_m->platform_id,
            dt_node_tmp1->dt_entry_m->variant_id,
            dt_node_tmp1->dt_entry_m->board_hw_subtype,
@@ -1773,6 +1782,8 @@ update_dtb_entry_node (struct dt_entry_node *dt_list, UINT32 dtb_info)
            dt_node_tmp1->dt_entry_m->pmic_rev[1],
            dt_node_tmp1->dt_entry_m->pmic_rev[2],
            dt_node_tmp1->dt_entry_m->pmic_rev[3],
+           dt_node_tmp1->dt_entry_m->sku_id,
+           dt_node_tmp1->dt_entry_m->oem_id,
            dt_node_tmp1->dt_entry_m->offset, dt_node_tmp1->dt_entry_m->size));
 
       dt_node_tmp2 = (struct dt_entry_node *)dt_node_tmp1->node.prev;
@@ -1806,6 +1817,12 @@ update_dtb_entry_node (struct dt_entry_node *dt_list, UINT32 dtb_info)
     case DTB_PMIC3:
       current_info = dt_node_tmp1->dt_entry_m->pmic_rev[3];
       break;
+    case DTB_SKU:
+      current_info = dt_node_tmp1->dt_entry_m->sku_id;
+      break;
+    case DTB_OEM:
+      current_info = dt_node_tmp1->dt_entry_m->oem_id;
+      break;
     default:
       DEBUG ((EFI_D_ERROR,
               "ERROR: Unsupported version (%d) in dt node check \n", dtb_info));
@@ -1814,8 +1831,8 @@ update_dtb_entry_node (struct dt_entry_node *dt_list, UINT32 dtb_info)
 
     if (current_info != best_info) {
       DEBUG (
-          (EFI_D_VERBOSE,
-           "Delete don't fit DTB entry %u/%08x/0x%08x/%x/%x/%x/%x/%x/%x/%x\n",
+          (EFI_D_VERBOSE, "Delete DTB entry(current dtb != best dtb)"
+	   " %u/%08x/0x%08x/%x/%x/%x/%x/%x/%x/%x/%x/%x\n",
            dt_node_tmp1->dt_entry_m->platform_id,
            dt_node_tmp1->dt_entry_m->variant_id,
            dt_node_tmp1->dt_entry_m->board_hw_subtype,
@@ -1824,6 +1841,8 @@ update_dtb_entry_node (struct dt_entry_node *dt_list, UINT32 dtb_info)
            dt_node_tmp1->dt_entry_m->pmic_rev[1],
            dt_node_tmp1->dt_entry_m->pmic_rev[2],
            dt_node_tmp1->dt_entry_m->pmic_rev[3],
+           dt_node_tmp1->dt_entry_m->sku_id,
+           dt_node_tmp1->dt_entry_m->oem_id,
            dt_node_tmp1->dt_entry_m->offset, dt_node_tmp1->dt_entry_m->size));
 
       dt_node_tmp2 = (struct dt_entry_node *)dt_node_tmp1->node.prev;
@@ -1876,6 +1895,8 @@ platform_dt_match_best (struct dt_entry_node *dt_list)
   update_dtb_entry_node (dt_list, DTB_PMIC1);
   update_dtb_entry_node (dt_list, DTB_PMIC2);
   update_dtb_entry_node (dt_list, DTB_PMIC3);
+  update_dtb_entry_node (dt_list, DTB_SKU);
+  update_dtb_entry_node (dt_list, DTB_OEM);
 
   list_for_every_entry (&dt_list->node, dt_node_tmp1, dt_node, node)
   {
