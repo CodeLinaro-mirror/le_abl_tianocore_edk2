@@ -857,7 +857,8 @@ PartitionHasMultiSlot (CONST CHAR16 *Pname)
       } else if (PtnEntries[i].PartEntry.PartitionName[Len] == L'_' &&
                  (PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'b')) {
         if (IsRecoveryInfo ()) {
-          DEBUG (( EFI_D_INFO, "Multislot because RecoveryInfo Detected\n"));
+          DEBUG (( EFI_D_VERBOSE, "RecoveryInfo protocol is enabled and "
+                                  "Mulitslot configuration is detected.\n"));
           return TRUE;
         }
         SlotCount++;
@@ -865,6 +866,7 @@ PartitionHasMultiSlot (CONST CHAR16 *Pname)
     }
 
     if (SlotCount > MIN_SLOTS) {
+      DEBUG (( EFI_D_VERBOSE, "Multislot configuration is detected.\n"));
       return TRUE;
     }
   }
