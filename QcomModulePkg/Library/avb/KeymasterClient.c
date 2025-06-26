@@ -73,6 +73,8 @@
 #include <Protocol/EFIQseecom.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/scm_sip_interface.h>
+#include <Library/PartitionTableUpdate.h>
+
 
 typedef struct {
   QCOM_QSEECOM_PROTOCOL *QseeComProtocol;
@@ -93,6 +95,10 @@ STATIC KMHandle Handle = {NULL};
 #define KMVIRT_PARTITION_GUID \
     { 0xf3e39102, 0xed76, 0x4bdd, \
       { 0xa0, 0x06, 0xde, 0xe6, 0x9b, 0x68, 0xb2, 0x1b } }
+
+STATIC EFI_GUID KMVIRT_PARTITION_GUID_B =
+    { 0xd13c4686, 0x4e80, 0x4e49, { 0xa4, 0xc9, 0xa8, 0xc8, 0xe8, 0x07, 0xad, 0x14 } };
+
 #endif
 
 typedef enum {
@@ -221,6 +227,19 @@ KeyMasterStartApp (KMHandle *Handle)
 #endif
   KMGetVersionReq Req = {0};
   KMGetVersionRsp Rsp = {0};
+
+#ifdef LOAD_TWO_KM_TAS
+  Slot CurrentSlot = {{0}};
+
+  CurrentSlot = GetCurrentSlotSuffix ();
+  CHAR8 CurrentSlotKM[MAX_SLOT_SUFFIX_SZ];
+  UnicodeStrToAsciiStr (CurrentSlot.Suffix, CurrentSlotKM);
+
+  if (avb_strncmp("_b", CurrentSlotKM, 2) == 0 ) {
+    KmvirtPartitionGuid = KMVIRT_PARTITION_GUID_B;
+    DEBUG ((EFI_D_ERROR, "Loading kmvirt TA from slot_b\n"));
+  }
+#endif
 
   if (Handle == NULL) {
     DEBUG ((EFI_D_ERROR, "KeyMasterStartApp: Invalid Handle\n"));
