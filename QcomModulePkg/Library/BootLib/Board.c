@@ -73,6 +73,7 @@
 
 #include <LinuxLoaderLib.h>
 
+BOOLEAN IsSoftSkuProtocolAvailable = FALSE;
 STATIC struct BoardInfo platform_board_info;
 
 STATIC CONST CHAR8 *DeviceType[] = {
@@ -519,6 +520,24 @@ BoardPmicTarget (UINT32 PmicDeviceIndex)
   return target;
 }
 
+VOID
+IsSoftSKUFeatureEnabled ()
+{
+  EFI_STATUS Status;
+  EFI_QCOM_SOFT_SKU_PROTOCOL *SoftskuIf;
+
+  Status = gBS->LocateProtocol(&gQcomSoftSKUProtocolGuid, NULL,
+                               (VOID **)&SoftskuIf);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Error locating the SOFTSKU protocol\n"));
+    IsSoftSkuProtocolAvailable = FALSE;
+    return;
+  }
+
+  IsSoftSkuProtocolAvailable = TRUE;
+  return;
+}
+
 EFI_STATUS
 GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_FEATURE_ID FeatureID, UINT32 *FeatureVal)
 {
@@ -593,6 +612,8 @@ EFI_STATUS BoardInit (VOID)
 
   BoardSoftSKU (&SKUId);
   platform_board_info.SoftSKUId = SKUId;
+
+  IsSoftSKUFeatureEnabled ();
 
   if (BoardPlatformFusion ()) {
     AsciiSPrint ((CHAR8 *)platform_board_info.ChipBaseBand,

@@ -141,6 +141,8 @@ struct BoardInfo {
 #define SOFTSKU_ID_SWCONFIG_SHFIT  8
 #define SOFTSKU_ID_SWCONFIG_MASK  (0xf << SOFTSKU_ID_SWCONFIG_SHFIT)
 
+extern BOOLEAN IsSoftSkuProtocolAvailable;
+
 EFI_STATUS
 BaseMem (UINT64 *BaseMemory);
 
@@ -182,4 +184,6 @@ EFI_STATUS BoardDdrType (UINT32 *Type);
 UINT32 BoardPlatformHlosSubType (VOID);
 VOID BoardSoftSKU (UINT32 *SKUId);
 UINT32 BoardSKUId (VOID);
+EFI_STATUS
+GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_FEATURE_ID FeatureID, UINT32 *FeatureVal);
 #endif
