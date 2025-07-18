@@ -45,6 +45,12 @@ found at
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/BaseMemoryLib.h>
@@ -185,6 +191,8 @@ STATIC VOID
 AcceptCmd (IN UINT64 Size, IN CHAR8 *Data);
 STATIC VOID
 AcceptCmdHandler (IN EFI_EVENT Event, IN VOID *Context);
+STATIC EFI_STATUS
+OemFastbootCommandSetup (VOID);
 
 #define NAND_PAGES_PER_BLOCK 64
 
@@ -2245,7 +2253,14 @@ FastbootCmdsInit (VOID)
   MaxDownLoadSize = (CheckRootDeviceType () == NAND) ?
                               MaxDownLoadSize : MaxDownLoadSize / 2;
 
-  FastbootCommandSetup ((VOID *)FastBootBuffer, MaxDownLoadSize);
+  /* Setup set of fastboot commands and variables depending on fastboot mode.
+   * Either default set of native implementation is used, or dedicated mode
+   * related to Android GVM bootloader mode use case. */
+  if (!IsOemFastbootMode ()) {
+    FastbootCommandSetup ((VOID *)FastBootBuffer, MaxDownLoadSize);
+  } else {
+    OemFastbootCommandSetup ();
+  }
   return EFI_SUCCESS;
 }
 
@@ -3756,4 +3771,78 @@ VOID *FastbootDloadBuffer (VOID)
 ANDROID_FASTBOOT_STATE FastbootCurrentState (VOID)
 {
   return mState;
+}
+
+STATIC VOID
+CmdRebootBootloaderOem (CONST CHAR8 *arg, VOID *data, UINT32 sz)
+{
+  DEBUG ((EFI_D_INFO, "Rebooting the device into bootloader mode\n"));
+  FastbootOkay ("");
+  RebootDevice (OEM_RESET_MIN);
+
+  // Shouldn't get here
+  FastbootFail ("Failed to reboot");
+}
+
+STATIC VOID
+CmdRebootRecoveryGvm (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+
+  Status = WriteRecoveryMessageToGvm (RECOVERY_BOOT_RECOVERY);
+  if (Status != EFI_SUCCESS) {
+    FastbootFail ("Failed to reboot to recovery mode");
+    return;
+  }
+  DEBUG ((EFI_D_INFO, "rebooting the device to recovery\n"));
+  FastbootOkay ("");
+
+  RebootDevice (NORMAL_MODE);
+
+  // Shouldn't get here
+  FastbootFail ("Failed to reboot");
+}
+
+STATIC VOID
+CmdRebootFastbootGvm (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  Status = WriteRecoveryMessageToGvm (RECOVERY_BOOT_FASTBOOT);
+  if (Status != EFI_SUCCESS) {
+    FastbootFail ("Failed to reboot to fastboot mode");
+    return;
+  }
+  DEBUG ((EFI_D_INFO, "rebooting the device to fastbootd\n"));
+  FastbootOkay ("");
+
+  RebootDevice (NORMAL_MODE);
+
+  // Shouldn't get here
+  FastbootFail ("Failed to reboot");
+}
+
+STATIC EFI_STATUS
+OemFastbootCommandSetup (VOID)
+{
+  UINT32 i;
+
+  struct FastbootCmdDesc cmd_list[] = {
+      /* By Default enable list is empty */
+      {"", NULL},
+      {"continue", CmdContinue},
+      {"reboot", CmdReboot},
+      {"reboot-bootloader", CmdRebootBootloaderOem},
+      {"reboot-recovery", CmdRebootRecoveryGvm},
+      {"reboot-fastboot", CmdRebootFastbootGvm},
+      {"getvar:", CmdGetVar},
+  };
+
+  FastbootPublishVar ("is-userspace", "no");
+
+  /* Register handlers for the supported commands*/
+  UINT32 FastbootCmdCnt = sizeof (cmd_list) / sizeof (cmd_list[0]);
+  for (i = 1; i < FastbootCmdCnt; i++)
+    FastbootRegister (cmd_list[i].name, cmd_list[i].cb);
+
+  return EFI_SUCCESS;
 }

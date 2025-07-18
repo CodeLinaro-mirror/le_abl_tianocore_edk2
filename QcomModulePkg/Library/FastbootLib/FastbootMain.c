@@ -41,6 +41,12 @@ found at
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include <Uefi.h>
 #include <Library/DebugLib.h>
@@ -65,6 +71,7 @@ found at
 /* Global fastboot data */
 static FastbootDeviceData Fbd;
 static USB_DEVICE_DESCRIPTOR_SET DescSet;
+static BOOLEAN OemFastbootMode = FALSE;
 
 STATIC
 CONST
@@ -395,4 +402,14 @@ EFI_STATUS FastbootInitialize (VOID)
 
   Status = FastbootUsbDeviceStop ();
   return Status;
+}
+
+VOID EnableOemFastbootMode (VOID)
+{
+  OemFastbootMode = TRUE;
+}
+
+BOOLEAN IsOemFastbootMode (VOID)
+{
+  return OemFastbootMode;
 }

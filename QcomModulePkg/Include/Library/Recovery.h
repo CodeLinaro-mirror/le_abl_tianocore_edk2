@@ -25,6 +25,12 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef _BOOTLOADER_RECOVERY_H
 #define _BOOTLOADER_RECOVERY_H
@@ -49,4 +55,6 @@ EFI_STATUS
 GetFfbmCommand (CHAR8 *FfbmMode, UINT32 Sz);
 EFI_STATUS
 WriteRecoveryMessage (CHAR8 *Command);
+EFI_STATUS
+WriteRecoveryMessageToGvm (CHAR8 *Command);
 #endif

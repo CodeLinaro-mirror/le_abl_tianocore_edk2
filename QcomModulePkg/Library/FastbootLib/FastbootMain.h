@@ -26,6 +26,12 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef __FASTBOOT_MAIN_H__
 #define __FASTBOOT_MAIN_H__
@@ -56,4 +62,6 @@ FastbootDeviceData *GetFastbootDeviceData (VOID);
 EFI_STATUS HandleUsbEvents (VOID);
 EFI_STATUS FastbootUsbDeviceStop (VOID);
 EFI_STATUS FastbootInitialize (VOID);
+VOID EnableOemFastbootMode (VOID);
+BOOLEAN IsOemFastbootMode (VOID);
 #endif

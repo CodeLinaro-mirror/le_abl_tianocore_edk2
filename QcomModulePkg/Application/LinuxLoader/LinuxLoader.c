@@ -29,6 +29,12 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "AutoGen.h"
 #include "BootLinux.h"
@@ -235,6 +241,12 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
       DEBUG ((EFI_D_ERROR, "VB Reset Device State error: %r\n", Status));
       goto stack_guard_update_default;
     }
+    break;
+  case OEM_RESET_MIN:
+    /* In case of OEM reset, enter fastboot mode but with dedicated command set
+     * related to Android GVM bootloader mode use case handling. */
+    EnableOemFastbootMode();
+    BootIntoFastboot = TRUE;
     break;
   default:
     if (BootReason != NORMAL_MODE) {

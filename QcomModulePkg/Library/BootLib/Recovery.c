@@ -25,6 +25,12 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "Recovery.h"
 #include "AutoGen.h"
@@ -244,6 +250,43 @@ GetFfbmCommand (CHAR8 *FfbmString, UINT32 Sz)
 
   FreePool (FfbmData);
   FfbmData = NULL;
+
+  return Status;
+}
+
+EFI_STATUS
+WriteRecoveryMessageToGvm (CHAR8 *Command)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  struct RecoveryMessage * Msg = NULL;
+  EFI_GUID Ptype = gEfiGvmMiscPartitionGuid;
+  VOID *PartitionData = NULL;
+  UINT32 PageSize;
+
+  GetPageSize (&PageSize);
+
+  Status = ReadFromPartition (&Ptype, (VOID **)&PartitionData, PageSize);
+
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Error reading from gvm_misc partition: %r\n", Status));
+    return Status;
+  }
+
+  if (!PartitionData) {
+    DEBUG ((EFI_D_ERROR, "Error in loading data from gvm_misc partition\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Msg = (struct RecoveryMessage *) PartitionData;
+
+  Status = AsciiStrnCpyS (Msg->command, sizeof (Msg->command),
+                                  Command, AsciiStrLen (Command));
+  if (Status == EFI_SUCCESS) {
+    Status =
+       WriteToPartition (&Ptype, Msg, sizeof (struct RecoveryMessage));
+   }
+
+  FreePool (PartitionData);
 
   return Status;
 }
