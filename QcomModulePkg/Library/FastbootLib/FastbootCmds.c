@@ -3797,7 +3797,7 @@ CmdRebootRecoveryGvm (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
   DEBUG ((EFI_D_INFO, "rebooting the device to recovery\n"));
   FastbootOkay ("");
 
-  RebootDevice (NORMAL_MODE);
+  RebootDevice (OEM_RESET_MIN + RECOVERY_MODE);
 
   // Shouldn't get here
   FastbootFail ("Failed to reboot");
@@ -3815,7 +3815,7 @@ CmdRebootFastbootGvm (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
   DEBUG ((EFI_D_INFO, "rebooting the device to fastbootd\n"));
   FastbootOkay ("");
 
-  RebootDevice (NORMAL_MODE);
+  RebootDevice (OEM_RESET_MIN + FASTBOOT_MODE);
 
   // Shouldn't get here
   FastbootFail ("Failed to reboot");

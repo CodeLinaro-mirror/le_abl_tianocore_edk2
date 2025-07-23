@@ -25,6 +25,12 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "LinuxLoaderLib.h"
 #include "AutoGen.h"
@@ -47,6 +53,7 @@
 #define FILE_INFO_SIZE (SIZE_OF_EFI_FILE_INFO + 256)
 
 STATIC UINT32 TimerFreq, FactormS;
+STATIC RebootReasonType AndroidRequestedMode = NORMAL_MODE;
 /**
   Returns a list of BlkIo handles based on required criteria
 SelectionAttrib : Bitmask representing the conditions that need
@@ -821,4 +828,16 @@ IsMdtpActive (BOOLEAN *MdtpActive)
                  (MdtpState != MDTP_STATE_INACTIVE));
 
   return Status;
+}
+
+VOID
+SetAndroidRequestedMode (RebootReasonType Mode)
+{
+  AndroidRequestedMode = Mode;
+}
+
+RebootReasonType
+GetAndroidRequestedMode (VOID)
+{
+  return AndroidRequestedMode;
 }

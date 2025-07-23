@@ -248,6 +248,12 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
     EnableOemFastbootMode();
     BootIntoFastboot = TRUE;
     break;
+  case OEM_RESET_MIN + RECOVERY_MODE:
+    SetAndroidRequestedMode (RECOVERY_MODE);
+    break;
+  case OEM_RESET_MIN + FASTBOOT_MODE:
+    SetAndroidRequestedMode (FASTBOOT_MODE);
+    break;
   default:
     if (BootReason != NORMAL_MODE) {
       DEBUG ((EFI_D_ERROR,

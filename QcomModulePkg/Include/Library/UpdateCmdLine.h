@@ -30,6 +30,12 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  **/
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef __UPDATECMDLINE_H__
 #define __UPDATECMDLINE_H__
@@ -90,6 +96,7 @@ typedef struct UpdateCmdLineParamList {
   CHAR8 *ResumeCmdLine;
   CHAR8 *IntegrityIMACmdline;
   CONST CHAR8 *SystemdSlotEnv;
+  CHAR8 *AndroidRequestedModeCmdLine;
 } UpdateCmdLineParamList;
 
 EFI_STATUS

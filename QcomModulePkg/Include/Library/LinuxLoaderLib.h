@@ -25,6 +25,12 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef __LINUXLOADERLIB_H__
 #define __LINUXLOADERLIB_H__
@@ -32,6 +38,7 @@
 #include <Uefi.h>
 
 #include "DeviceInfo.h"
+#include "ShutdownServices.h"
 #include <Guid/FileInfo.h>
 #include <Guid/FileSystemInfo.h>
 #include <Guid/Gpt.h>
@@ -191,4 +198,11 @@ WriteBlockToPartition (EFI_BLOCK_IO_PROTOCOL *BlockIo,
                    IN UINT64 Offset,
                    IN UINT64 Size,
                    IN VOID *Image);
+
+VOID
+SetAndroidRequestedMode (RebootReasonType Mode);
+
+RebootReasonType
+GetAndroidRequestedMode (VOID);
+
 #endif

@@ -30,6 +30,12 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  **/
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include <Library/BootLinux.h>
 #include <Library/PartitionTableUpdate.h>
@@ -84,6 +90,9 @@ STATIC UINTN DisplayCmdLineLen = sizeof (DisplayCmdLine);
 #define MAX_DTBO_IDX_STR 64
 STATIC CHAR8 *AndroidBootDtboIdx = " androidboot.dtbo_idx=";
 STATIC CHAR8 *AndroidBootDtbIdx = " androidboot.dtb_idx=";
+
+STATIC CHAR8 *AndroidRequestedModeRecovery = " android_requested_mode=recovery";
+STATIC CHAR8 *AndroidRequestedModeFastboot = " android_requested_mode=fastboot";
 
 STATIC EFI_STATUS
 TargetPauseForBatteryCharge (BOOLEAN *BatteryStatus)
@@ -616,6 +625,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
+  if (Param->AndroidRequestedModeCmdLine) {
+    Src = Param->AndroidRequestedModeCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
   return EFI_SUCCESS;
 }
 
@@ -653,6 +667,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   CHAR8 *ModemPathStr = NULL;
   CHAR8 UsbCompositionCmdline[COMPOSITION_CMDLINE_LEN]= "\0";
   CHAR8 IntegrityIMACmdline[IMA_CMDLINE_LEN] = "\0";
+  RebootReasonType AndroidMode;
 
   if (FlashlessBoot)
     goto skip_BoardSerialNum;
@@ -841,6 +856,15 @@ skip_BoardSerialNum:
 
   if (IsHibernationEnabled()) {
     CmdLineLen += GetResumeCmdLine(&ResumeCmdLine, (CHAR16 *)L"swap_a");
+  }
+
+  AndroidMode = GetAndroidRequestedMode ();
+  if (AndroidMode == RECOVERY_MODE) {
+    Param.AndroidRequestedModeCmdLine = AndroidRequestedModeRecovery;
+    CmdLineLen += AsciiStrLen (AndroidRequestedModeRecovery);
+  } else if (AndroidMode == FASTBOOT_MODE) {
+    Param.AndroidRequestedModeCmdLine = AndroidRequestedModeFastboot;
+    CmdLineLen += AsciiStrLen (AndroidRequestedModeFastboot);
   }
 
   Param.Recovery = Recovery;
