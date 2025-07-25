@@ -139,6 +139,7 @@ STATIC CHAR8 BootCpuCmdLine[BOOT_CPU_PARAM_LEN];
 STATIC CHAR8 SwConfigCmdLine[SW_CONFIG_MAX_LEN];
 STATIC CONST CHAR8 *SwConfigs[] = {
    "non-safe-ivi", "adas", "safe-ivi", "flex", };
+STATIC CHAR8 *SltFlavorCmdLine = " sltflavor=1";
 
 /* Display command line related structures */
 #define MAX_DISPLAY_CMD_LINE 256
@@ -901,6 +902,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param, CHAR8 **FinalCmdLine,
     if (Src) {
       AsciiStrCatS (Dst, MaxCmdLineLen, Src);
     }
+
+    Src = Param->SltFlavorCmdLine;
+    if (Src) {
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    }
   }
 
   return EFI_SUCCESS;
@@ -1557,6 +1563,14 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
       Param.SwConfigCmdLine = SwConfigCmdLine;
     } else {
       DEBUG ((EFI_D_ERROR, "Failed to get SW config info\n"));
+    }
+
+    Status = GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_SLT, &SkuParam);
+    if (Status == EFI_SUCCESS && SkuParam == 0x1) {
+      CmdLineLen += AsciiStrLen(SltFlavorCmdLine);
+      Param.SltFlavorCmdLine = SltFlavorCmdLine;
+    } else {
+      DEBUG ((EFI_D_ERROR, "Failed to get SLT flavor info\n"));
     }
   }
 
