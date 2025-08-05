@@ -90,6 +90,8 @@
 #define MEM_OFF_MIN 0x180000000
 #define MB_SIZE 0x100000
 
+#define SW_CONFIG_MAX_LEN 32
+
 typedef struct BootInfo BootInfo;
 typedef struct BootLinuxParamlist BootParamlist;
 
@@ -142,6 +144,7 @@ typedef struct UpdateCmdLineParamList {
   CONST CHAR8 *SystemdSlotEnv;
   CHAR8 *SilentBootModeCmdLine;
   CHAR8 *BootCpuCmdLine;
+  CHAR8 *SwConfigCmdLine;
 } UpdateCmdLineParamList;
 
 
