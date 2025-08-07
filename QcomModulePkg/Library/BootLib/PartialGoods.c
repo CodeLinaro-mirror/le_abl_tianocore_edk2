@@ -55,9 +55,30 @@ static struct PartialGoods PartialGoodsCpuType0[] = {
     {0x20, "/cpus", {"cpu@500", "enable-method", "psci", "none"}},
     {0x40, "/cpus", {"cpu@10000", "enable-method", "psci", "none"}},
     {0x80, "/cpus", {"cpu@10100", "enable-method", "psci", "none"}},
+    {0x100, "/cpus", {"cpu@10200", "enable-method", "psci", "none"}},
+    {0x200, "/cpus", {"cpu@10300", "enable-method", "psci", "none"}},
+    {0x400, "/cpus", {"cpu@10400", "enable-method", "psci", "none"}},
+    {0x800, "/cpus", {"cpu@10500", "enable-method", "psci", "none"}},
+    {0x1000, "/cpus", {"cpu@20000", "enable-method", "psci", "none"}},
+    {0x2000, "/cpus", {"cpu@20100", "enable-method", "psci", "none"}},
+    {0x4000, "/cpus", {"cpu@20200", "enable-method", "psci", "none"}},
+    {0x8000, "/cpus", {"cpu@20300", "enable-method", "psci", "none"}},
+    {0x10000, "/cpus", {"cpu@20400", "enable-method", "psci", "none"}},
+    {0x20000, "/cpus", {"cpu@20500", "enable-method", "psci", "none"}},
 };
 
 static struct PartialGoods PartialGoodsCpuType1[] = {
+    {0x1, "/cpus", {"cpu@0", "enable-method", "psci", "none"}},
+    {0x2, "/cpus", {"cpu@100", "enable-method", "psci", "none"}},
+    {0x4, "/cpus", {"cpu@200", "enable-method", "psci", "none"}},
+    {0x8, "/cpus", {"cpu@300", "enable-method", "psci", "none"}},
+    {0x10, "/cpus", {"cpu@400", "enable-method", "psci", "none"}},
+    {0x20, "/cpus", {"cpu@500", "enable-method", "psci", "none"}},
+    {0x40, "/cpus", {"cpu@10000", "enable-method", "psci", "none"}},
+    {0x80, "/cpus", {"cpu@10100", "enable-method", "psci", "none"}},
+};
+
+static struct PartialGoods PartialGoodsCpuType2[] = {
     {0x1, "/cpus", {"cpu@0", "enable-method", "psci", "none"}},
     {0x2, "/cpus", {"cpu@100", "enable-method", "psci", "none"}},
     {0x4, "/cpus", {"cpu@200", "enable-method", "psci", "none"}},
@@ -68,7 +89,7 @@ static struct PartialGoods PartialGoodsCpuType1[] = {
     {0x80, "/cpus", {"cpu@700", "enable-method", "psci", "none"}},
 };
 
-static struct PartialGoods PartialGoodsCpuType2[] = {
+static struct PartialGoods PartialGoodsCpuType3[] = {
     {0x1, "/cpus", {"cpu@101", "enable-method", "psci", "none"}},
     {0x2, "/cpus", {"cpu@102", "enable-method", "psci", "none"}},
     {0x4, "/cpus", {"cpu@103", "enable-method", "psci", "none"}},
@@ -79,7 +100,7 @@ static struct PartialGoods PartialGoodsCpuType2[] = {
     {0x40, "/cpus", {"cpu@108", "enable-method", "psci", "none"}},
 };
 
-static struct PartialGoods PartialGoodsCpuType3[] = {
+static struct PartialGoods PartialGoodsCpuType4[] = {
     {0x1, "/cpus", {"cpu@0", "enable-method", "psci", "none"}},
     {0x2, "/cpus", {"cpu@1", "enable-method", "psci", "none"}},
     {0x4, "/cpus", {"cpu@2", "enable-method", "psci", "none"}},
@@ -94,7 +115,8 @@ static struct PartialGoods PartialGoodsCpuType3[] = {
 
 STATIC struct PartialGoods *PartialGoodsCpuType[MAX_CPU_CLUSTER] = {
     PartialGoodsCpuType0, PartialGoodsCpuType1,
-    PartialGoodsCpuType2, PartialGoodsCpuType3
+    PartialGoodsCpuType2, PartialGoodsCpuType3,
+    PartialGoodsCpuType4
 };
 
 /* Look up table for multimedia partial goods */

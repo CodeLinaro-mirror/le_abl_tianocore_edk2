@@ -36,7 +36,7 @@
 #define __PARTIALGOODS_H__
 
 #include <Library/Board.h>
-#define MAX_CPU_CLUSTER 4
+#define MAX_CPU_CLUSTER 5
 #define SUBSET_PART_CHIPINFO_BASE_REVISION 0x0000000000010002
 
 struct SubNodeListNew {
