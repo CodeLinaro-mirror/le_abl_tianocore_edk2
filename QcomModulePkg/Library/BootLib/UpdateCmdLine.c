@@ -69,6 +69,7 @@
 #include <Library/PrintLib.h>
 #include <Library/FdtRw.h>
 #include <Library/ShutdownServices.h>
+#include <Library/Board.h>
 #include <LinuxLoaderLib.h>
 #include <Protocol/EFICardInfo.h>
 #include <Protocol/EFIChargerEx.h>
@@ -135,6 +136,9 @@ STATIC CHAR8 IFaceAddrBufCmdLine[MAX_IP_ADDR_BUF];
 STATIC CHAR8 SpeedAddrBufCmdLine[MAX_IP_ADDR_BUF];
 STATIC CHAR8 *ResumeCmdLine = NULL;
 STATIC CHAR8 BootCpuCmdLine[BOOT_CPU_PARAM_LEN];
+STATIC CHAR8 SwConfigCmdLine[SW_CONFIG_MAX_LEN];
+STATIC CONST CHAR8 *SwConfigs[] = {
+   "non-safe-ivi", "adas", "safe-ivi", "flex", };
 
 /* Display command line related structures */
 #define MAX_DISPLAY_CMD_LINE 256
@@ -892,6 +896,13 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param, CHAR8 **FinalCmdLine,
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
+  if (IsSoftSkuProtocolAvailable) {
+    Src = Param->SwConfigCmdLine;
+    if (Src) {
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    }
+  }
+
   return EFI_SUCCESS;
 }
 CHAR8* RemoveSpace (CHAR8* param, UINT32 ParamLen)
@@ -1020,7 +1031,8 @@ UpdateBootConfigParams (LIST_ENTRY *BootConfigListHead,
   }
   Link = GetFirstNode (BootConfigListHead);
   if (!Link) {
-    DEBUG ((EFI_D_INFO, "Error in Node entry \n"));
+    DEBUG ((EFI_D_ERROR, "Error in Node entry \n"));
+    return EFI_NOT_FOUND;
   }
 
   gBS->CopyMem (Dst, "\n", SIZE_OF_DELIM);
@@ -1056,7 +1068,8 @@ ClearBootConfigList (LIST_ENTRY* BootConfigListHead)
 
   Link = GetFirstNode (BootConfigListHead);
   if (!Link) {
-    DEBUG ((EFI_D_INFO, "Error in Node entry \n"));
+    DEBUG ((EFI_D_ERROR, "Error in Node entry \n"));
+    return;
   }
 
   while (!IsNull (BootConfigListHead, Link)) {
@@ -1118,6 +1131,7 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
   CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
   CHAR8 MemOffAmt[MEM_OFF_SIZE];
   BOOLEAN BootConfigFlag = FALSE;
+  UINT32 SkuParam = 0;
 
   CONST CHAR8 *CmdLine = BootParamlistPtr->CmdLine;
   CHAR8 **FinalCmdLine = &BootParamlistPtr->FinalCmdLine;
@@ -1126,6 +1140,10 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
   VOID *fdt = (VOID *)BootParamlistPtr->DeviceTreeLoadAddr;
 
   BootConfigListHead = (LIST_ENTRY*) AllocateZeroPool (sizeof (LIST_ENTRY));
+  if (BootConfigListHead == NULL) {
+    DEBUG ((EFI_D_ERROR, "BootConfigListHead: Out of resources\n"));
+    return EFI_OUT_OF_RESOURCES;
+  }
   InitializeListHead (BootConfigListHead);
 
   Status = BoardSerialNum (StrSerialNum, sizeof (StrSerialNum));
@@ -1528,6 +1546,18 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
 
   if (IsHibernationEnabled ()) {
     CmdLineLen += GetResumeCmdLine (&ResumeCmdLine, (CHAR16 *)L"swap_a");
+  }
+
+  if (IsSoftSkuProtocolAvailable) {
+    Status = GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_CHIP_SKU_ID, &SkuParam);
+    if (Status == EFI_SUCCESS) {
+      AsciiSPrint (SwConfigCmdLine, sizeof (SwConfigCmdLine), " swconfig=%a",
+                   SwConfigs[SkuParam]);
+      CmdLineLen += AsciiStrLen(SwConfigCmdLine);
+      Param.SwConfigCmdLine = SwConfigCmdLine;
+    } else {
+      DEBUG ((EFI_D_ERROR, "Failed to get SW config info\n"));
+    }
   }
 
   Param.Recovery = Recovery;
