@@ -145,6 +145,7 @@ typedef struct UpdateCmdLineParamList {
   CHAR8 *SilentBootModeCmdLine;
   CHAR8 *BootCpuCmdLine;
   CHAR8 *SwConfigCmdLine;
+  CHAR8 *SltFlavorCmdLine;
 } UpdateCmdLineParamList;
 
 

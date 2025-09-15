@@ -76,6 +76,7 @@
 #include <Protocol/EFIChipInfoTypes.h>
 #include <Protocol/EFIPmicPon.h>
 #include <Protocol/Print2.h>
+#include <Library/PartialGoods.h>
 
 #include "AutoGen.h"
 #include <DeviceInfo.h>
@@ -84,6 +85,11 @@
 #include "LECmdLine.h"
 #include "EarlyEthernet.h"
 #include "RecoveryInfo.h"
+
+#ifdef QSPA_BOOTCONFIG_ENABLE
+#define MAX_PART_NAME_LEN 40
+STATIC CONST CHAR8 *QSPAPrefix = "androidboot.vendor.qspa.";
+#endif
 
 #define BOOT_CPU_PARAM_LEN 13
 #define SIZE_OF_DELIM 2
@@ -139,6 +145,7 @@ STATIC CHAR8 BootCpuCmdLine[BOOT_CPU_PARAM_LEN];
 STATIC CHAR8 SwConfigCmdLine[SW_CONFIG_MAX_LEN];
 STATIC CONST CHAR8 *SwConfigs[] = {
    "non-safe-ivi", "adas", "safe-ivi", "flex", };
+STATIC CHAR8 *SltFlavorCmdLine = " sltflavor=1";
 
 /* Display command line related structures */
 #define MAX_DISPLAY_CMD_LINE 256
@@ -901,6 +908,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param, CHAR8 **FinalCmdLine,
     if (Src) {
       AsciiStrCatS (Dst, MaxCmdLineLen, Src);
     }
+
+    Src = Param->SltFlavorCmdLine;
+    if (Src) {
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    }
   }
 
   return EFI_SUCCESS;
@@ -1096,6 +1108,76 @@ ClearBootConfigList (LIST_ENTRY* BootConfigListHead)
   return;
 
 }
+
+#ifdef QSPA_BOOTCONFIG_ENABLE
+STATIC EFI_STATUS
+Update_PartialGoods_Bootconfig (UINT32 HeaderVersion,
+                               UINT32 *CmdLineLen,
+                               UINT32 *BootConfigLen)
+{
+  CHAR8 QSPAPropName[MAX_PART_NAME_LEN] = "\n";
+  CHAR8 *QSPAPropValue;
+  UINT32 PartialGoodsMMValue = 0;
+  EFI_STATUS Status;
+  UINT32 ParamLen = 0;
+  BOOLEAN BootConfigFlag = FALSE;
+
+  EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol;
+  Status = gBS->LocateProtocol (&gEfiChipInfoProtocolGuid, NULL,
+                                (VOID **)&pChipInfoProtocol);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Failed to locate ChipInfo protocol.\n"));
+    return Status;
+  }
+
+  Status = ReadMMPartialGoods (pChipInfoProtocol, &PartialGoodsMMValue);
+  if (Status == EFI_UNSUPPORTED) {
+    return EFI_SUCCESS;
+  }
+
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Failed to get PartialGoodsMMValue.\n"));
+    return Status;
+  }
+
+  if (ARRAY_SIZE (ChipInfoPartTypeStr) < EFICHIPINFO_NUM_PARTS) {
+    DEBUG ((EFI_D_ERROR, "QSPA property missing for some parts.\n"));
+  }
+
+  for (UINT32 Iter = EFICHIPINFO_PART_UNKNOWN + 1;
+       Iter < MIN (EFICHIPINFO_NUM_PARTS, ARRAY_SIZE (ChipInfoPartTypeStr));
+       Iter++) {
+    if (PartialGoodsMMValue & (1 << Iter)) {
+      QSPAPropValue = "1";
+    }
+    else {
+      QSPAPropValue = "0";
+    }
+    AsciiSPrint (QSPAPropName, MAX_PART_NAME_LEN, "%a%a=", QSPAPrefix,
+                 ChipInfoPartTypeStr[Iter]);
+    ParamLen = AsciiStrLen (QSPAPropName);
+    BootConfigFlag = IsAndroidBootParam (QSPAPropName, ParamLen, HeaderVersion);
+    if (BootConfigFlag) {
+      ADD_PARAM_LEN (BootConfigFlag, ParamLen, *CmdLineLen, *BootConfigLen);
+      ADD_PARAM_LEN (BootConfigFlag, AsciiStrLen (QSPAPropValue), *CmdLineLen,
+                     *BootConfigLen);
+      AddtoBootConfigList (BootConfigFlag, QSPAPropName, QSPAPropValue,
+                           BootConfigListHead, ParamLen,
+                           AsciiStrLen (QSPAPropValue));
+    }
+  }
+
+  return Status;
+}
+#else
+STATIC EFI_STATUS
+Update_PartialGoods_Bootconfig (UINT32 HeaderVersion,
+                                UINT32 *CmdLineLen,
+                                UINT32 *BootConfigLen)
+{
+  return EFI_SUCCESS;
+}
+#endif
 /*Update command line: appends boot information to the original commandline
  *that is taken from boot image header*/
 EFI_STATUS
@@ -1512,6 +1594,11 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
     Param.MemOffAmt = NULL;
   }
 
+  if (Update_PartialGoods_Bootconfig (HeaderVersion, &CmdLineLen,
+      &BootConfigLen) != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Failed to update PartialGoods_Bootconfig.\n"));
+  }
+
   if (SilentMode == SILENT_MODE) {
     CmdLineLen += AsciiStrLen (SilentBootEnbCmdLine);
     Param.SilentBootModeCmdLine = SilentBootEnbCmdLine;
@@ -1557,6 +1644,14 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
       Param.SwConfigCmdLine = SwConfigCmdLine;
     } else {
       DEBUG ((EFI_D_ERROR, "Failed to get SW config info\n"));
+    }
+
+    Status = GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_SLT, &SkuParam);
+    if (Status == EFI_SUCCESS && SkuParam == 0x1) {
+      CmdLineLen += AsciiStrLen(SltFlavorCmdLine);
+      Param.SltFlavorCmdLine = SltFlavorCmdLine;
+    } else {
+      DEBUG ((EFI_D_ERROR, "Failed to get SLT flavor info\n"));
     }
   }
 

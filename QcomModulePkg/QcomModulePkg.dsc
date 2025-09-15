@@ -236,6 +236,10 @@
   !if $(EMMC_MULTI_LUN_SUPPORT)
       GCC:*_*_*_CC_FLAGS = -DEMMC_MULTI_LUN_SUPPORT
   !endif
+  !if $(QSPA_BOOTCONFIG_ENABLE) ==1
+      GCC:*_*_*_CC_FLAGS = -DQSPA_BOOTCONFIG_ENABLE
+  !endif
+
 [PcdsFixedAtBuild.common]
 
 # DEBUG_ASSERT_ENABLED       0x01
