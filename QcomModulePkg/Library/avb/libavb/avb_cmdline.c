@@ -22,6 +22,12 @@
  * SOFTWARE.
  */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "avb_cmdline.h"
 #include "avb_sha.h"
 #include "avb_util.h"
@@ -357,6 +363,10 @@ AvbSlotVerifyResult avb_append_options(
         verity_mode = "panicking";
         dm_verity_mode = "panic_on_corruption";
         break;
+      default:
+        avb_error("Failed to get dm_verity_mode or verity_mode.\n");
+        ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
+        goto out;
     }
     new_ret = avb_replace(
         slot_data->cmdline, "$(ANDROID_VERITY_MODE)", dm_verity_mode);
