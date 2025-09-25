@@ -26,6 +26,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "LocateDeviceTree.h"
 #include "UpdateDeviceTree.h"
 #include <Library/Board.h>
@@ -40,7 +46,7 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
 STATIC struct dt_entry *
 platform_dt_match_best (struct dt_entry_node *dt_list);
 
-STATIC BOOLEAN DtboNeed = TRUE;
+STATIC BOOLEAN DtboNeed = FALSE;
 
 STATIC INT32 DtboIdx = INVALID_PTN;
 INT32 GetDtboIdx (VOID)
