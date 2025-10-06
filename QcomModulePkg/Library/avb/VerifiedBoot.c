@@ -1331,6 +1331,7 @@ TzBlowSwFuse (VOID)
     return Status;
   }
 
+  Param[0] = TZ_HLOS_BL_MILESTONE_FUSE;
   Status = pQcomScmProtocol->ScmSipSysCall(pQcomScmProtocol, TZ_BLOW_SW_FUSE_ID,
       TZ_BLOW_SW_FUSE_ID_PARAM_ID, Param, Results);
   if (Status != EFI_SUCCESS) {
