@@ -554,6 +554,11 @@ static struct PartialGoodsWithLabel PartialGoodsMmTypeWithLabel[] = {
     {"video_cc_mvs1c_gdsc", "status", "no"}},
 };
 
+static struct PartialGoodsWithLabel PartialGoodsMmTypeWithLabelMultiInst[] = {
+    {BIT (EFICHIPINFO_PART_GPU),
+     {"adreno_smmu_1", "status", "no"}},
+};
+
 STATIC EFI_STATUS
 CheckCPUType (VOID *fdt,
               UINT32 TableSz,
@@ -796,6 +801,47 @@ ReadCpuPartialGoods (EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol, UINT32 *Value)
 }
 
 EFI_STATUS
+ReadMMPartialGoodsMultiInstance (EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol,
+                                 UINT32 *Value)
+{
+  UINT32 i, j;
+  UINT32 SubsetVal = 0;
+  BOOLEAN SubsetBoolVal = FALSE;
+  EFI_STATUS Status = EFI_SUCCESS;
+
+  if ((Value == NULL) ||
+      (pChipInfoProtocol == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (pChipInfoProtocol->Revision < SUBSET_PART_CHIPINFO_BASE_REVISION) {
+    return EFI_UNSUPPORTED;
+  }
+
+  *Value = 0;
+  for (i = 1; i < EFICHIPINFO_NUM_PARTS; i++) {
+    for (j = 1; j < EFICHIPINFO_MAX_INSTANCE; j++) {
+      if (pChipInfoProtocol->Revision >= EFI_CHIPINFO_PROTOCOL_REVISION_7) {
+        /* Ensure to reset the Value before checking for Part Subset*/
+        SubsetBoolVal = FALSE;
+        Status =  pChipInfoProtocol->IsPartDisabled (pChipInfoProtocol,
+                                                     i, j, &SubsetBoolVal);
+        if (EFI_ERROR (Status)) {
+          continue;
+        }
+        SubsetVal = (UINT32) SubsetBoolVal;
+      }
+    }
+    *Value |= (SubsetVal << i);
+  }
+
+  if (Status == EFI_NOT_FOUND)
+    Status = EFI_SUCCESS;
+
+  return Status;
+}
+
+EFI_STATUS
 ReadMMPartialGoods (EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol, UINT32 *Value)
 {
   UINT32 i;
@@ -853,6 +899,7 @@ UpdatePartialGoodsNode (VOID *fdt)
 {
   UINT32 i;
   UINT32 PartialGoodsMMValue = 0;
+  UINT32 PartialGoodsMMValueMultiInst = 0;
   UINT32 PartialGoodsCpuValue;
   UINT32 PartialGoodsCPUTypeValue = 0;
   EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol;
@@ -883,7 +930,22 @@ UpdatePartialGoodsNode (VOID *fdt)
     FindLabelAndUpdateProperty (fdt, ARRAY_SIZE (PartialGoodsMmTypeWithLabel),
                                &PartialGoodsMmTypeWithLabel[0],
                                PartialGoodsMMValue);
+  }
 
+  Status = ReadMMPartialGoodsMultiInstance (pChipInfoProtocol,
+                                            &PartialGoodsMMValueMultiInst);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_INFO, "No mm partial goods found.\n"));
+  }
+
+  if (PartialGoodsMMValueMultiInst) {
+    DEBUG ((EFI_D_INFO, "PartialGoods for Multimedia in Mulit Instance: 0x%x\n",
+            PartialGoodsMMValueMultiInst));
+
+    FindLabelAndUpdateProperty (fdt,
+                              ARRAY_SIZE (PartialGoodsMmTypeWithLabelMultiInst),
+                              &PartialGoodsMmTypeWithLabelMultiInst[0],
+                              PartialGoodsMMValueMultiInst);
   }
 
   /* Read and update CPU Partial Goods nodes */
