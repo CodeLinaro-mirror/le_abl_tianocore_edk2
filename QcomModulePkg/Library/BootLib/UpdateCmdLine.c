@@ -1370,8 +1370,8 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
                      BootConfigListHead, ParamLen, 0);
   }
   MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
-  if (MultiSlotBoot &&
-     !IsBootDevImage ()) {
+  if (MultiSlotBoot) {
+    if (!IsBootDevImage ()) {
        if (IsLEVariant () &&
           !IsLVBootslotEnabled ()) {
          ParamLen = AsciiStrLen (SystemdSlotEnv);
@@ -1388,6 +1388,15 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
          ADD_PARAM_LEN (BootConfigFlag, ParamLen, CmdLineLen,
                          BootConfigLen);
        }
+    } else if (IsRecoveryInfo () &&
+               IsLEVariant ()) {
+      ParamLen = AsciiStrLen (SystemdSlotEnv);
+      BootConfigFlag = IsAndroidBootParam (SystemdSlotEnv,
+                                           ParamLen, HeaderVersion);
+      ADD_PARAM_LEN (BootConfigFlag, ParamLen, CmdLineLen, BootConfigLen);
+      AddtoBootConfigList (BootConfigFlag, SystemdSlotEnv, NULL,
+                          BootConfigListHead, ParamLen, 0);
+    }
   }
 
   if ((IsBuildAsSystemRootImage (BootParamlistPtr) &&
@@ -1610,8 +1619,18 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
     CmdLineLen += AsciiStrLen (SpeedAddrBufCmdLine);
   }
 
-  /* 1 extra byte for NULL */
-  CmdLineLen += 1;
+  if (BootCpuSelectionEnabled ()) {
+    AsciiSPrint (BootCpuCmdLine, sizeof (BootCpuCmdLine), " boot_cpu=%d",
+                 BootCpuId);
+    ParamLen = AsciiStrLen (BootCpuCmdLine);
+    BootConfigFlag = IsAndroidBootParam (BootCpuCmdLine,
+                          ParamLen, HeaderVersion);
+    ADD_PARAM_LEN (BootConfigFlag, ParamLen,
+                 CmdLineLen, BootConfigLen);
+    AddtoBootConfigList (BootConfigFlag, BootCpuCmdLine, NULL,
+                BootConfigListHead, ParamLen, 0);
+    Param.BootCpuCmdLine = BootCpuCmdLine;
+  }
 
   if (IsHibernationEnabled ()) {
     CmdLineLen += GetResumeCmdLine (&ResumeCmdLine, (CHAR16 *)L"swap_a");
@@ -1646,6 +1665,9 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
       DEBUG ((EFI_D_ERROR, "Failed to get OS config info\n"));
     }
   }
+
+  /* 1 extra byte for NULL */
+  CmdLineLen += 1;
 
   Param.Recovery = Recovery;
   Param.MultiSlotBoot = MultiSlotBoot;
@@ -1693,19 +1715,6 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
 
   if (IsHibernationEnabled ()) {
     Param.ResumeCmdLine = ResumeCmdLine;
-  }
-
-  if (BootCpuSelectionEnabled ()) {
-    AsciiSPrint (BootCpuCmdLine, sizeof (BootCpuCmdLine), " boot_cpu=%d",
-                 BootCpuId);
-    ParamLen = AsciiStrLen (BootCpuCmdLine);
-    BootConfigFlag = IsAndroidBootParam (BootCpuCmdLine,
-                          ParamLen, HeaderVersion);
-    ADD_PARAM_LEN (BootConfigFlag, ParamLen,
-                 CmdLineLen, BootConfigLen);
-    AddtoBootConfigList (BootConfigFlag, BootCpuCmdLine, NULL,
-                BootConfigListHead, ParamLen, 0);
-    Param.BootCpuCmdLine = BootCpuCmdLine;
   }
 
   Status = UpdateCmdLineParams (&Param, FinalCmdLine, BootParamlistPtr);
