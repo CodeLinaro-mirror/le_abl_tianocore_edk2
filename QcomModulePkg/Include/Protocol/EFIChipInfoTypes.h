@@ -74,6 +74,11 @@
 #define EFICHIPINFO_RAW_DEVICE_NUMBER_UNKNOWN  0x0
 #define EFICHIPINFO_QFPROM_CHIPID_UNKNOWN      0x0
 
+/**
+  Maximum number of Instances for IsPartDisabled API
+ **/
+#define EFICHIPINFO_MAX_INSTANCE 4
+
 /** @endcond */
 
 /** @addtogroup efi_chipInfo_data_types

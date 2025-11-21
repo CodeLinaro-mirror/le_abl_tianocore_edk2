@@ -116,9 +116,9 @@ STATIC CHAR8 IFaceAddrBufCmdLine[MAX_IP_ADDR_BUF];
 STATIC CHAR8 SpeedAddrBufCmdLine[MAX_IP_ADDR_BUF];
 STATIC CHAR8 *ResumeCmdLine = NULL;
 STATIC CHAR8 BootCpuCmdLine[BOOT_CPU_PARAM_LEN];
-STATIC CHAR8 SwConfigCmdLine[SW_CONFIG_MAX_LEN];
+STATIC CHAR8 ProdConfigCmdLine[PROD_CONFIG_MAX_LEN];
 STATIC CHAR8 OsConfigCmdLine[OS_CONFIG_MAX_LEN];
-STATIC CONST CHAR8 *SwConfigs[] = {
+STATIC CONST CHAR8 *ProdConfigs[] = {
    "non-safe-ivi", "adas", "safe-ivi", "flex", };
 STATIC CHAR8 *SltFlavorCmdLine = " sltflavor=1";
 STATIC CONST CHAR8 *OsConfigs[] = {
@@ -881,7 +881,7 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param, CHAR8 **FinalCmdLine,
   }
 
   if (IsSoftSkuProtocolAvailable) {
-    Src = Param->SwConfigCmdLine;
+    Src = Param->ProdConfigCmdLine;
     if (Src) {
       AsciiStrCatS (Dst, MaxCmdLineLen, Src);
     }
@@ -1370,8 +1370,8 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
                      BootConfigListHead, ParamLen, 0);
   }
   MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
-  if (MultiSlotBoot &&
-     !IsBootDevImage ()) {
+  if (MultiSlotBoot) {
+    if (!IsBootDevImage ()) {
        if (IsLEVariant () &&
           !IsLVBootslotEnabled ()) {
          ParamLen = AsciiStrLen (SystemdSlotEnv);
@@ -1388,6 +1388,15 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
          ADD_PARAM_LEN (BootConfigFlag, ParamLen, CmdLineLen,
                          BootConfigLen);
        }
+    } else if (IsRecoveryInfo () &&
+               IsLEVariant ()) {
+      ParamLen = AsciiStrLen (SystemdSlotEnv);
+      BootConfigFlag = IsAndroidBootParam (SystemdSlotEnv,
+                                           ParamLen, HeaderVersion);
+      ADD_PARAM_LEN (BootConfigFlag, ParamLen, CmdLineLen, BootConfigLen);
+      AddtoBootConfigList (BootConfigFlag, SystemdSlotEnv, NULL,
+                          BootConfigListHead, ParamLen, 0);
+    }
   }
 
   if ((IsBuildAsSystemRootImage (BootParamlistPtr) &&
@@ -1610,22 +1619,32 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
     CmdLineLen += AsciiStrLen (SpeedAddrBufCmdLine);
   }
 
-  /* 1 extra byte for NULL */
-  CmdLineLen += 1;
+  if (BootCpuSelectionEnabled ()) {
+    AsciiSPrint (BootCpuCmdLine, sizeof (BootCpuCmdLine), " boot_cpu=%d",
+                 BootCpuId);
+    ParamLen = AsciiStrLen (BootCpuCmdLine);
+    BootConfigFlag = IsAndroidBootParam (BootCpuCmdLine,
+                          ParamLen, HeaderVersion);
+    ADD_PARAM_LEN (BootConfigFlag, ParamLen,
+                 CmdLineLen, BootConfigLen);
+    AddtoBootConfigList (BootConfigFlag, BootCpuCmdLine, NULL,
+                BootConfigListHead, ParamLen, 0);
+    Param.BootCpuCmdLine = BootCpuCmdLine;
+  }
 
   if (IsHibernationEnabled ()) {
     CmdLineLen += GetResumeCmdLine (&ResumeCmdLine, (CHAR16 *)L"swap_a");
   }
 
   if (IsSoftSkuProtocolAvailable) {
-    Status = GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_CHIP_SKU_ID, &SkuParam);
+    Status = GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_PRODUCT_CFG, &SkuParam);
     if (Status == EFI_SUCCESS) {
-      AsciiSPrint (SwConfigCmdLine, sizeof (SwConfigCmdLine), " swconfig=%a",
-                   SwConfigs[SkuParam]);
-      CmdLineLen += AsciiStrLen(SwConfigCmdLine);
-      Param.SwConfigCmdLine = SwConfigCmdLine;
+      AsciiSPrint (ProdConfigCmdLine, sizeof (ProdConfigCmdLine), " prodconfig=%a",
+                   ProdConfigs[SkuParam]);
+      CmdLineLen += AsciiStrLen(ProdConfigCmdLine);
+      Param.ProdConfigCmdLine = ProdConfigCmdLine;
     } else {
-      DEBUG ((EFI_D_ERROR, "Failed to get SW config info\n"));
+      DEBUG ((EFI_D_ERROR, "Failed to get product config info\n"));
     }
 
     Status = GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_SLT, &SkuParam);
@@ -1646,6 +1665,9 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
       DEBUG ((EFI_D_ERROR, "Failed to get OS config info\n"));
     }
   }
+
+  /* 1 extra byte for NULL */
+  CmdLineLen += 1;
 
   Param.Recovery = Recovery;
   Param.MultiSlotBoot = MultiSlotBoot;
@@ -1693,19 +1715,6 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
 
   if (IsHibernationEnabled ()) {
     Param.ResumeCmdLine = ResumeCmdLine;
-  }
-
-  if (BootCpuSelectionEnabled ()) {
-    AsciiSPrint (BootCpuCmdLine, sizeof (BootCpuCmdLine), " boot_cpu=%d",
-                 BootCpuId);
-    ParamLen = AsciiStrLen (BootCpuCmdLine);
-    BootConfigFlag = IsAndroidBootParam (BootCpuCmdLine,
-                          ParamLen, HeaderVersion);
-    ADD_PARAM_LEN (BootConfigFlag, ParamLen,
-                 CmdLineLen, BootConfigLen);
-    AddtoBootConfigList (BootConfigFlag, BootCpuCmdLine, NULL,
-                BootConfigListHead, ParamLen, 0);
-    Param.BootCpuCmdLine = BootCpuCmdLine;
   }
 
   Status = UpdateCmdLineParams (&Param, FinalCmdLine, BootParamlistPtr);

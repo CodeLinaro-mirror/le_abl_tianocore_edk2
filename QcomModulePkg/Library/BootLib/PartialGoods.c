@@ -119,6 +119,29 @@ STATIC struct PartialGoods *PartialGoodsCpuType[MAX_CPU_CLUSTER] = {
     PartialGoodsCpuType4
 };
 
+/* Lookup table for CPU Power Domain (PD) nodes */
+static struct PartialGoods PartialGoodsCpuPDType0[] = {
+    {0x1,     "/psci", {"cpu-pd0",  "status", "ok", "fail"}},
+    {0x2,     "/psci", {"cpu-pd1",  "status", "ok", "fail"}},
+    {0x4,     "/psci", {"cpu-pd2",  "status", "ok", "fail"}},
+    {0x8,     "/psci", {"cpu-pd3",  "status", "ok", "fail"}},
+    {0x10,    "/psci", {"cpu-pd4",  "status", "ok", "fail"}},
+    {0x20,    "/psci", {"cpu-pd5",  "status", "ok", "fail"}},
+    {0x40,    "/psci", {"cpu-pd6",  "status", "ok", "fail"}},
+    {0x80,    "/psci", {"cpu-pd7",  "status", "ok", "fail"}},
+    {0x100,   "/psci", {"cpu-pd8",  "status", "ok", "fail"}},
+    {0x200,   "/psci", {"cpu-pd9",  "status", "ok", "fail"}},
+    {0x400,   "/psci", {"cpu-pd10", "status", "ok", "fail"}},
+    {0x800,   "/psci", {"cpu-pd11", "status", "ok", "fail"}},
+    {0x1000,  "/psci", {"cpu-pd12", "status", "ok", "fail"}},
+    {0x2000,  "/psci", {"cpu-pd13", "status", "ok", "fail"}},
+    {0x4000,  "/psci", {"cpu-pd14", "status", "ok", "fail"}},
+    {0x8000,  "/psci", {"cpu-pd15", "status", "ok", "fail"}},
+    {0x10000, "/psci", {"cpu-pd16", "status", "ok", "fail"}},
+    {0x20000, "/psci", {"cpu-pd17", "status", "ok", "fail"}},
+};
+#define NUM_OF_PD_NODES (ARRAY_SIZE(PartialGoodsCpuPDType0))
+
 /* Look up table for multimedia partial goods */
 static struct PartialGoods PartialGoodsMmType[] = {
     {BIT (EFICHIPINFO_PART_GPU),
@@ -554,6 +577,11 @@ static struct PartialGoodsWithLabel PartialGoodsMmTypeWithLabel[] = {
     {"video_cc_mvs1c_gdsc", "status", "no"}},
 };
 
+static struct PartialGoodsWithLabel PartialGoodsMmTypeWithLabelMultiInst[] = {
+    {BIT (EFICHIPINFO_PART_GPU),
+     {"adreno_smmu_1", "status", "no"}},
+};
+
 STATIC EFI_STATUS
 CheckCPUType (VOID *fdt,
               UINT32 TableSz,
@@ -796,6 +824,47 @@ ReadCpuPartialGoods (EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol, UINT32 *Value)
 }
 
 EFI_STATUS
+ReadMMPartialGoodsMultiInstance (EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol,
+                                 UINT32 *Value)
+{
+  UINT32 i, j;
+  UINT32 SubsetVal = 0;
+  BOOLEAN SubsetBoolVal = FALSE;
+  EFI_STATUS Status = EFI_SUCCESS;
+
+  if ((Value == NULL) ||
+      (pChipInfoProtocol == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (pChipInfoProtocol->Revision < SUBSET_PART_CHIPINFO_BASE_REVISION) {
+    return EFI_UNSUPPORTED;
+  }
+
+  *Value = 0;
+  for (i = 1; i < EFICHIPINFO_NUM_PARTS; i++) {
+    for (j = 1; j < EFICHIPINFO_MAX_INSTANCE; j++) {
+      if (pChipInfoProtocol->Revision >= EFI_CHIPINFO_PROTOCOL_REVISION_7) {
+        /* Ensure to reset the Value before checking for Part Subset*/
+        SubsetBoolVal = FALSE;
+        Status =  pChipInfoProtocol->IsPartDisabled (pChipInfoProtocol,
+                                                     i, j, &SubsetBoolVal);
+        if (EFI_ERROR (Status)) {
+          continue;
+        }
+        SubsetVal = (UINT32) SubsetBoolVal;
+      }
+    }
+    *Value |= (SubsetVal << i);
+  }
+
+  if (Status == EFI_NOT_FOUND)
+    Status = EFI_SUCCESS;
+
+  return Status;
+}
+
+EFI_STATUS
 ReadMMPartialGoods (EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol, UINT32 *Value)
 {
   UINT32 i;
@@ -848,11 +917,51 @@ ReadMMPartialGoods (EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol, UINT32 *Value)
   return Status;
 }
 
+STATIC VOID
+DeletePdNodes(VOID *fdt,
+              UINT32 PdTableSz,
+              struct PartialGoods *PdTable,
+              UINT32 Value)
+{
+    struct SubNodeListNew *SNode = NULL;
+    INT32 SubNodeOffset = 0;
+    INT32 ParentOffset = 0;
+    INT32 Ret = 0;
+    UINT32 i;
+
+    for (i = 0; i < PdTableSz; i++, PdTable++) {
+        if (!(Value & PdTable->Val))
+            continue;
+
+        ParentOffset = fdt_path_offset(fdt, PdTable->ParentNode);
+        if (ParentOffset < 0) {
+            DEBUG((EFI_D_ERROR, "PD parent node not found: %a\n", PdTable->ParentNode));
+            continue;
+        }
+
+        SNode = &(PdTable->SubNode);
+        SubNodeOffset = fdt_subnode_offset(fdt, ParentOffset, SNode->SubNodeName);
+        if (SubNodeOffset < 0) {
+            DEBUG((EFI_D_INFO, "PD subnode missing: %a\n", SNode->SubNodeName));
+            continue;
+        }
+
+        /* Delete the PD node */
+        Ret = fdt_del_node(fdt, SubNodeOffset);
+        if (!Ret) {
+            DEBUG((EFI_D_INFO, "PD node (%a) deleted successfully\n", SNode->SubNodeName));
+        } else {
+            DEBUG((EFI_D_ERROR, "Failed to delete PD node: %a, ret=%d\n", SNode->SubNodeName, Ret));
+        }
+    }
+}
+
 EFI_STATUS
 UpdatePartialGoodsNode (VOID *fdt)
 {
   UINT32 i;
   UINT32 PartialGoodsMMValue = 0;
+  UINT32 PartialGoodsMMValueMultiInst = 0;
   UINT32 PartialGoodsCpuValue;
   UINT32 PartialGoodsCPUTypeValue = 0;
   EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol;
@@ -883,7 +992,22 @@ UpdatePartialGoodsNode (VOID *fdt)
     FindLabelAndUpdateProperty (fdt, ARRAY_SIZE (PartialGoodsMmTypeWithLabel),
                                &PartialGoodsMmTypeWithLabel[0],
                                PartialGoodsMMValue);
+  }
 
+  Status = ReadMMPartialGoodsMultiInstance (pChipInfoProtocol,
+                                            &PartialGoodsMMValueMultiInst);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_INFO, "No mm partial goods found.\n"));
+  }
+
+  if (PartialGoodsMMValueMultiInst) {
+    DEBUG ((EFI_D_INFO, "PartialGoods for Multimedia in Mulit Instance: 0x%x\n",
+            PartialGoodsMMValueMultiInst));
+
+    FindLabelAndUpdateProperty (fdt,
+                              ARRAY_SIZE (PartialGoodsMmTypeWithLabelMultiInst),
+                              &PartialGoodsMmTypeWithLabelMultiInst[0],
+                              PartialGoodsMMValueMultiInst);
   }
 
   /* Read and update CPU Partial Goods nodes */
@@ -914,6 +1038,10 @@ UpdatePartialGoodsNode (VOID *fdt)
   FindNodeAndUpdateProperty (fdt, NUM_OF_CPUS,
                              &PartialGoodsCpuType[PartialGoodsCPUTypeValue][0],
                              PartialGoodsCpuValue);
+
+  DeletePdNodes(fdt, NUM_OF_PD_NODES,
+                &PartialGoodsCpuPDType0[0],
+                PartialGoodsCpuValue);
 
   return EFI_SUCCESS;
 }
