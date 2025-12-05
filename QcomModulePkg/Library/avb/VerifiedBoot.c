@@ -1354,6 +1354,11 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
     DEBUG ((EFI_D_INFO, "VB: LoadImageAndAuthForLE complete!\n"));
 
 skip_verification:
+    if (IsSdCardPresent()) {
+      GUARD (AppendVBCmdLine (Info, (CONST CHAR8 *)" root=/dev/ram0 update_mode=1"));
+      return Status;
+    }
+
     if (!IsRootCmdLineUpdated (Info)) {
         SystemPathLen = GetSystemPath (&SystemPath,
                                        Info->MultiSlotBoot,

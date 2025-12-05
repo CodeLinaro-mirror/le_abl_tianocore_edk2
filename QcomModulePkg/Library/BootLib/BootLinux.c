@@ -1446,6 +1446,11 @@ BOOLEAN IsSdCardPresent(VOID)
   return IsSdCardDetected;
 }
 
+VOID DisableSdCard(VOID)
+{
+  IsSdCardDetected = FALSE;
+}
+
 EFI_STATUS DetectSDCardAndMountFAT(VOID)
 {
   EFI_STATUS Status;
@@ -1513,18 +1518,24 @@ EFI_STATUS DetectSDCardAndMountFAT(VOID)
     return Status;
   }
 
+
   if (Status != EFI_SUCCESS)
   {
     DEBUG ((EFI_D_INFO, "[MountFat] Connecting controller\n"));
     Status = gBS->ConnectController (HandleInfoList[detectedIndex].Handle, NULL, NULL, TRUE);
     if (EFI_ERROR(Status))
+    {
       DEBUG ((EFI_D_ERROR, "[MountFat] Failed to connect controller\n"));
-  }
+        IsSdCardDetected = FALSE;   // need to add mainline via Qualcomm
+        return Status;
+    }
+}
 
-  DEBUG ((EFI_D_INFO, "Detected SD card and Mounted FS succesfully\n"));
+  DEBUG ((EFI_D_INFO, "Detected SD card and Mounted FS successfully\n"));
 
   return EFI_SUCCESS;
 }
+
 
 /**
   Load image from partition

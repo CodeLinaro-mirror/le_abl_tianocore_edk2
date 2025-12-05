@@ -318,13 +318,43 @@ LoadImageFromFatPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname)
     return Status;
   }
 
-  Status = RootFileHandle->Open (RootFileHandle, &FileHandle, (CHAR16*)L"boot.img",
-                                 (UINT64)EFI_FILE_MODE_READ, 0);
 
-  if ((Status != EFI_SUCCESS) || (FileHandle == NULL)) {
-    DEBUG ((DEBUG_ERROR, "Failed to open root file handle Status :%d\n", Status));
-    return Status;
-  }
+EFI_FILE_HANDLE UpdateDirHandle = NULL;
+
+if (IsSdCardPresent())
+{
+    Status = RootFileHandle->Open(RootFileHandle, &UpdateDirHandle, (CHAR16*)L"update",
+                                  EFI_FILE_MODE_READ, 0);
+
+    if ((Status != EFI_SUCCESS) || (UpdateDirHandle == NULL))
+    {
+        DEBUG ((DEBUG_ERROR, "Failed to open update directory Status :%d\n", Status));
+        return Status;
+    }
+
+    Status = UpdateDirHandle->Open(UpdateDirHandle, &FileHandle, (CHAR16*)L"recovery.img",
+                                   EFI_FILE_MODE_READ, 0);
+
+    if ((Status != EFI_SUCCESS) || (FileHandle == NULL))
+    {
+        DEBUG ((DEBUG_ERROR, "Failed to open recovery.img file Status :%d\n", Status));
+        UpdateDirHandle->Close(UpdateDirHandle);
+        return Status;
+    }
+
+    UpdateDirHandle->Close(UpdateDirHandle);
+}
+else
+{
+    Status = RootFileHandle->Open(RootFileHandle, &FileHandle, (CHAR16*)L"boot.img",
+                                  (UINT64)EFI_FILE_MODE_READ, 0);
+
+    if ((Status != EFI_SUCCESS) || (FileHandle == NULL))
+    {
+        DEBUG ((DEBUG_ERROR, "Failed to open root file handle Status :%d\n", Status));
+        return Status;
+    }
+}
 
   Size = ROUND_TO_PAGE(*ImageSize, (HandleInfoList[1].BlkIo->Media->BlockSize - 1));
 
@@ -355,7 +385,19 @@ LoadImageFromPartition (VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *Pname)
   STATIC UINT32 MaxHandles;
   STATIC UINT32 BlkIOAttrib = 0;
 
-  if (IsSdCardPresent() && StrStr(Pname, L"boot"))
+
+if (IsSdCardPresent())
+{
+    if (StrStr(Pname, L"recovery"))
+    {
+        // SD card recovery image case
+    }
+    else if (StrStr(Pname, L"boot"))
+    {
+        // Normal boot image case
+    }
+}
+
   {
      Status = LoadImageFromFatPartition(ImageBuffer, ImageSize, Pname);
      if (Status == EFI_SUCCESS)

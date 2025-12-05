@@ -278,6 +278,19 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
     DEBUG ((EFI_D_ERROR, "VM Hyp calls not present\n"));
   }
 
+  if (DetectSDCardAndMountFAT() == EFI_SUCCESS) {
+    BootInfo SdBootInfo = {0};
+    SdBootInfo.MultiSlotBoot = FALSE;
+    SdBootInfo.BootIntoRecovery = TRUE;
+
+    Status = LoadImageAndAuth (&SdBootInfo);
+    if (Status == EFI_SUCCESS) {
+      BootLinux (&SdBootInfo);
+    }
+
+    DisableSdCard();
+  }
+
   if (!BootIntoFastboot) {
     BootInfo Info = {0};
     Info.MultiSlotBoot = MultiSlotBoot;
