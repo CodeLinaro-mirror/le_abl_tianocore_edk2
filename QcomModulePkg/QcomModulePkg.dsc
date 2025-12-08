@@ -239,6 +239,9 @@
   !if $(QSPA_BOOTCONFIG_ENABLE) ==1
       GCC:*_*_*_CC_FLAGS = -DQSPA_BOOTCONFIG_ENABLE
   !endif
+  !if $(SOC_OP_MODE_IN_CMDLINE) == 1
+      GCC:*_*_*_CC_FLAGS = -DSOC_OP_MODE_IN_CMDLINE
+  !endif
 
 [PcdsFixedAtBuild.common]
 

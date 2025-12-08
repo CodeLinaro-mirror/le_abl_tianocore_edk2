@@ -123,7 +123,11 @@ STATIC CONST CHAR8 *ProdConfigs[] = {
 STATIC CHAR8 *SltFlavorCmdLine = " sltflavor=1";
 STATIC CONST CHAR8 *OsConfigs[] = {
    "PVM+GVM", "PVMOnly", "PVM+2GVM", };
-
+#ifdef SOC_OP_MODE_IN_CMDLINE
+STATIC CHAR8 SocOpModeCmdLine[SOC_OP_MODE_MAX_LEN];
+STATIC CONST CHAR8 *SocOpModes[] = {
+   "default", "commercial-grade", };
+#endif
 /* Display command line related structures */
 #define MAX_DISPLAY_CMD_LINE 256
 STATIC CHAR8 DisplayCmdLine[MAX_DISPLAY_CMD_LINE];
@@ -895,6 +899,12 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param, CHAR8 **FinalCmdLine,
     if (Src) {
       AsciiStrCatS (Dst, MaxCmdLineLen, Src);
     }
+#ifdef SOC_OP_MODE_IN_CMDLINE
+    Src = Param->SocOpModeCmdLine;
+    if (Src) {
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    }
+#endif
   }
 
   return EFI_SUCCESS;
@@ -1664,6 +1674,18 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
     } else {
       DEBUG ((EFI_D_ERROR, "Failed to get OS config info\n"));
     }
+
+#ifdef SOC_OP_MODE_IN_CMDLINE
+    Status = GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_SOC_OPERATION_MODE, &SkuParam);
+    if (Status == EFI_SUCCESS) {
+      AsciiSPrint (SocOpModeCmdLine, sizeof (SocOpModeCmdLine), " SocOpMode=%a",
+                   SocOpModes[SkuParam]);
+      CmdLineLen += AsciiStrLen(SocOpModeCmdLine);
+      Param.SocOpModeCmdLine = SocOpModeCmdLine;
+    } else {
+      DEBUG ((EFI_D_VERBOSE, "Failed to get SOC Operation Mode info\n"));
+    }
+#endif
   }
 
   /* 1 extra byte for NULL */
