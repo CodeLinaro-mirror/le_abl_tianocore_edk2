@@ -202,7 +202,7 @@ endif
 ifeq ($(TARGET_ARCHITECTURE), arm)
 	LOAD_ADDRESS := 0X8F700000
 else
-	LOAD_ADDRESS := 0X9FA00000
+	LOAD_ADDRESS ?= 0X9FA00000
 endif
 
 ifeq ($(ENABLE_LE_VARIANT), true)
@@ -276,7 +276,7 @@ endif
 	INIT_BIN := /sbin/init
 
 ifeq "$(BASE_ADDRESS)" ""
-	BASE_ADDRESS := 0x80000000
+	BASE_ADDRESS ?= 0x80000000
 endif
 
 ifeq "$(TARGET_LINUX_BOOT_CPU_SELECTION)" "true"
