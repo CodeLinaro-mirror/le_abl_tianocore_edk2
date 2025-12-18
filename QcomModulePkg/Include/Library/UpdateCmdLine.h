@@ -62,6 +62,7 @@
 
 #define PROD_CONFIG_MAX_LEN 32
 #define OS_CONFIG_MAX_LEN 32
+#define SOC_OP_MODE_MAX_LEN 32
 
 typedef struct BootInfo BootInfo;
 typedef struct BootLinuxParamlist BootParamlist;
@@ -118,6 +119,9 @@ typedef struct UpdateCmdLineParamList {
   CHAR8 *ProdConfigCmdLine;
   CHAR8 *SltFlavorCmdLine;
   CHAR8 *OsConfigCmdLine;
+#ifdef SOC_OP_MODE_IN_CMDLINE
+  CHAR8 *SocOpModeCmdLine;
+#endif
 } UpdateCmdLineParamList;
 
 
