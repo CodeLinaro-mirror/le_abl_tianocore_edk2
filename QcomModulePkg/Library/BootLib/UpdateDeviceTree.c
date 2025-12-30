@@ -27,39 +27,9 @@
 */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted (subject to the limitations in the
- *  disclaimer below) provided that the following conditions are met:
- *
- *      * Redistributions of source code must retain the above copyright
- *        notice, this list of conditions and the following disclaimer.
- *
- *      * Redistributions in binary form must reproduce the above
- *        copyright notice, this list of conditions and the following
- *        disclaimer in the documentation and/or other materials provided
- *        with the distribution.
- *
- *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *        contributors may be used to endorse or promote products derived
- *        from this software without specific prior written permission.
- *
- *  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- *  GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- *  HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- *   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- *  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- *  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- *  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- *  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /* Supporting function of UpdateDeviceTree()
@@ -1414,7 +1384,7 @@ GetCellCounts (IN VOID *fdt)
     return EFI_NOT_FOUND;
   }
 
-  DEBUG ((EFI_D_INFO, "#address-cells=%d, #size-cells=%d\n", AddressCells,
+  DEBUG ((EFI_D_VERBOSE, "#address-cells=%d, #size-cells=%d\n", AddressCells,
           SizeCells));
 
   return EFI_SUCCESS;
@@ -1646,7 +1616,7 @@ PopulateScmiChannel(IN VOID *fdt, IN INT32 SubNodeOffset, OUT UINT32 *Label)
 
   /* CapId is to be written at Address + Size - 8 */
   Addr = (uintptr_t)(Address + Size - 8);
-  DEBUG ((EFI_D_INFO, "Writing capid=0x%llx@0x%llx ...\n", CapId, Addr));
+  DEBUG ((EFI_D_VERBOSE, "Writing capid=0x%llx@0x%llx ...\n", CapId, Addr));
 
   *((uintptr_t *)(Addr)) = CapId;
 
@@ -1681,13 +1651,13 @@ UpdateScmiInfo(VOID *fdt)
   /* Get offset of the firmware node */
   FwOffset = FdtPathOffset (fdt, "/firmware");
   if (FwOffset < 0) {
-    DEBUG ((EFI_D_INFO, "no firmware node found...\n"));
-    return Status;
+    DEBUG ((EFI_D_ERROR, "No /firmware node found...\n"));
+    return EFI_NOT_FOUND;
   }
 
   ScmiChanOffset = FdtPathOffset (fdt, "scmichannels");
   if (ScmiChanOffset < 0) {
-    DEBUG ((EFI_D_INFO, "no \'scmichannels\' alias found!Please create one\n"));
+    DEBUG ((EFI_D_VERBOSE, "No \'scmichannels\' alias found. Please create one\n"));
   }
 
   Status = GetCellCounts (fdt);
