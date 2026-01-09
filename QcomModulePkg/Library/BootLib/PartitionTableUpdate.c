@@ -1080,7 +1080,8 @@ PatchGpt (UINT8 *Gpt,
   /* Patch Backup GPT */
   Offset = (2 * PartEntryArrSz);
   SecondaryGptHeader = Offset + BlkSz + PrimaryGptHeader;
-  PUT_LONG_LONG (SecondaryGptHeader + PRIMARY_HEADER_OFFSET, (UINT64)1);
+  PUT_LONG_LONG (SecondaryGptHeader + PRIMARY_HEADER_OFFSET, (UINT64)(NumSectors - 1));
+  PUT_LONG_LONG (SecondaryGptHeader + BACKUP_HEADER_OFFSET, (UINT64)1);
   PUT_LONG_LONG (SecondaryGptHeader + LAST_USABLE_LBA_OFFSET,
                  (UINT64) (NumSectors - (PtnEntryBlks + 1)));
   PUT_LONG_LONG (SecondaryGptHeader + PARTITION_ENTRIES_OFFSET,
