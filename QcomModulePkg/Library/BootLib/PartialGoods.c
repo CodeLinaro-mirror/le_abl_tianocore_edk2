@@ -918,42 +918,51 @@ ReadMMPartialGoods (EFI_CHIPINFO_PROTOCOL *pChipInfoProtocol, UINT32 *Value)
 }
 
 STATIC VOID
-DeletePdNodes(VOID *fdt,
+DeletePdNodes(VOID *Fdt,
               UINT32 PdTableSz,
               struct PartialGoods *PdTable,
               UINT32 Value)
 {
-    struct SubNodeListNew *SNode = NULL;
-    INT32 SubNodeOffset = 0;
-    INT32 ParentOffset = 0;
-    INT32 Ret = 0;
-    UINT32 i;
+  struct SubNodeListNew *SNode;
+  INT32 ParentOffset, Ret;
+  UINT32 i;
 
-    for (i = 0; i < PdTableSz; i++, PdTable++) {
-        if (!(Value & PdTable->Val))
-            continue;
+  if (!Fdt || !PdTable || !PdTableSz)
+    return;
 
-        ParentOffset = fdt_path_offset(fdt, PdTable->ParentNode);
-        if (ParentOffset < 0) {
-            DEBUG((EFI_D_ERROR, "PD parent node not found: %a\n", PdTable->ParentNode));
-            continue;
-        }
+  for (i = 0; i < PdTableSz; i++, PdTable++) {
+    if (!(Value & PdTable->Val))
+      continue;
 
-        SNode = &(PdTable->SubNode);
-        SubNodeOffset = fdt_subnode_offset(fdt, ParentOffset, SNode->SubNodeName);
-        if (SubNodeOffset < 0) {
-            DEBUG((EFI_D_INFO, "PD subnode missing: %a\n", SNode->SubNodeName));
-            continue;
-        }
-
-        /* Delete the PD node */
-        Ret = fdt_del_node(fdt, SubNodeOffset);
-        if (!Ret) {
-            DEBUG((EFI_D_INFO, "PD node (%a) deleted successfully\n", SNode->SubNodeName));
-        } else {
-            DEBUG((EFI_D_ERROR, "Failed to delete PD node: %a, ret=%d\n", SNode->SubNodeName, Ret));
-        }
+    SNode = &PdTable->SubNode;
+    if (!SNode || !SNode->SubNodeName || !*SNode->SubNodeName) {
+      DEBUG ((EFI_D_ERROR,
+              "PD entry %u has invalid SubNode/SubNodeName (val=0x%x)\n",
+              i, PdTable->Val));
+      continue;
     }
+
+    ParentOffset = FixedPcdGetBool(EnableNewNodeSearchFuc)
+                     ? FdtPathOffset(Fdt, PdTable->ParentNode)
+                     : fdt_path_offset(Fdt, PdTable->ParentNode);
+    if (ParentOffset < 0) {
+      DEBUG((EFI_D_ERROR, "PD node not found: %a (ret=%d)\n",
+             PdTable->ParentNode, ParentOffset));
+      continue;
+    }
+
+    Ret = FdtDelSubnode(Fdt, ParentOffset, SNode->SubNodeName);
+    if (Ret == 0) {
+      DEBUG((EFI_D_INFO, "PD node (%a) deleted successfully\n",
+             SNode->SubNodeName));
+    } else if (Ret == -FDT_ERR_NOTFOUND) {
+      DEBUG((EFI_D_ERROR, "PD subnode missing: %a\n",
+             SNode->SubNodeName));
+    } else {
+      DEBUG((EFI_D_ERROR, "Failed to delete PD node: %a, ret=%d\n",
+             SNode->SubNodeName, Ret));
+    }
+  }
 }
 
 EFI_STATUS
