@@ -15,7 +15,18 @@
 // An implementation of the hash and kdf crypto operations using boringssl. The
 // algorithms used are SHA512 and HKDF-SHA512.
 
+/*
+ * ​​​​​Changes from Qualcomm Innovation Center, Inc. are provided
+ * under the following license:
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc.
+ * All rights reserved. SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+#ifdef ENABLE_C_HEADER
 #include <stdint.h>
+#else
+#include "../../opendice-util.h"
+#endif
 
 #include "dice/dice.h"
 #include "dice/ops.h"

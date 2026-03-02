@@ -26,11 +26,10 @@
 # * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 # * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # *
-# * Changes from Qualcomm Innovation Center are provided under the following license:
-# * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+# * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # * SPDX-License-Identifier: BSD-3-Clause-Clear
-#*/
-
+# */
 
 [Defines]
   DEC_SPECIFICATION              = 0x00010005
@@ -53,6 +52,9 @@
   Library
   Library/avb/
   Library/aes/
+  Library/OpenDice/open-dice/include
+  Library/OpenDice/boringssl/include
+  Library/OpenDice/open-dice/include/dice/config/boringssl_ed25519
 
 [Guids.common]
   gQcomTokenSpaceGuid =                 { 0x882f8c2b, 0x9646, 0x435f, { 0x8d, 0xe5, 0xf2, 0x08, 0xff, 0x80, 0xc1, 0xbd } }

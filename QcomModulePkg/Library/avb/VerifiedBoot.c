@@ -26,21 +26,22 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- /*
+/*
  * Changes from Qualcomm Technologies, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "VerifiedBoot.h"
 #include "BootLinux.h"
 #include "BootImage.h"
-#include "KeymasterClient.h"
+#include "Library/KeymasterClient.h"
 #include "libavb/libavb.h"
 #include <FastbootLib/FastbootCmds.h>
 #include <Library/MenuKeysDetection.h>
 #include <Library/VerifiedBootMenu.h>
 #include <Library/LEOEMCertificate.h>
+#include "AvbPopulateBccParams.h"
 #include "RecoveryInfo.h"
 
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
@@ -1353,7 +1354,11 @@ IsValidPartition (Slot *Slot, CONST CHAR16 *Name)
 
 STATIC EFI_STATUS
 LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume,
-                        BOOLEAN SetRotAndBootState)
+                        BOOLEAN SetRotAndBootState
+#ifndef USE_DUMMY_BCC
+                        , BccParams_t *BccParams
+#endif
+                    )
 {
   EFI_STATUS Status = EFI_SUCCESS;
   AvbSlotVerifyResult Result;
@@ -2009,7 +2014,11 @@ skip_verification:
 
 EFI_STATUS
 LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume,
-                        BOOLEAN SetRotAndBootState)
+                        BOOLEAN SetRotAndBootState
+#ifndef USE_DUMMY_BCC
+                        , BccParams_t *BccParamsRecvdFromAVB
+#endif
+                 )
 {
   EFI_STATUS Status = EFI_SUCCESS;
   BOOLEAN MdtpActive = FALSE;
@@ -2152,7 +2161,12 @@ get_ptn_name:
     Status = LoadImageAndAuthVB1 (Info);
     break;
   case AVB_2:
-    Status = LoadImageAndAuthVB2 (Info, HibernationResume, SetRotAndBootState);
+    Status = LoadImageAndAuthVB2 (Info, HibernationResume
+                                  , SetRotAndBootState
+#ifndef USE_DUMMY_BCC
+                                  , BccParamsRecvdFromAVB
+#endif
+                                  );
     break;
   case AVB_LE:
     Status = LoadImageAndAuthForLE (Info);
@@ -2192,12 +2206,6 @@ get_ptn_name:
 
   if (AVBVersion != AVB_LE) {
     DisplayVerifiedBootScreen (Info);
-    DEBUG ((EFI_D_VERBOSE, "Sending Milestone Call\n"));
-    Status = Info->VbIntf->VBSendMilestone (Info->VbIntf);
-    if (Status != EFI_SUCCESS) {
-      DEBUG ((EFI_D_ERROR, "Error sending milestone call to TZ\n"));
-      return Status;
-    }
   }
   return Status;
 }

@@ -26,10 +26,18 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the
+ * following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef __VERIFIEDBOOT_H__
 #define __VERIFIEDBOOT_H__
 
 #include <Uefi.h>
+#include <Library/QcBcc.h>
 
 enum
 {
@@ -72,6 +80,7 @@ typedef enum {
 
 /* forward declare BootInfo */
 typedef struct BootInfo BootInfo;
+extern BccParams_t BccParamsRecvdFromAVB;
 
 BOOLEAN
 VerifiedBootEnbled ();
@@ -105,7 +114,11 @@ GetAVBVersion ();
  */
 EFI_STATUS
 LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume,
-        BOOLEAN SetRotAndBootState);
+                  BOOLEAN SetRotAndBootState
+#ifndef USE_DUMMY_BCC
+                  , BccParams_t *BccParamsRecvdFromAVB
+#endif
+                 );
 
 /**
  *  Free resources/memory allocated by

@@ -12,9 +12,20 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#include "dice/utils.h"
+/*
+ * ​​​​​Changes from Qualcomm Innovation Center, Inc. are provided
+ * under the following license:
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc.
+ * All rights reserved. SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
+#ifdef ENABLE_C_HEADER
 #include <stdint.h>
+#else
+#include "../../opendice-util.h"
+#endif
+
+#include "dice/utils.h"
 
 void DiceHexEncode(const uint8_t* in, size_t num_bytes, void* out,
                    size_t out_size) {
