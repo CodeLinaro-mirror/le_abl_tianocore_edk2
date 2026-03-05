@@ -69,23 +69,50 @@ typedef enum {
 #define DDR_SHIFT              8
 
 #define MB             (1024 * 1024UL)
-#define DDR_8192MB     (8192 * MB)
-#define DDR_12288MB     (12288 * MB)
-#define DDR_18432MB     (18432 * MB)
-#define DDR_24576MB     (24576 * MB)
-#define DDR_36864MB     (36864 * MB)
-#define DDR_49152MB     (49152 * MB)
-#define DDR_65536MB     (65536 * MB)
+#define DDR_1024MB      (1024 * MB)    /* 1 GB */
+#define DDR_2048MB      (2048 * MB)    /* 2 GB */
+#define DDR_4096MB      (4096 * MB)    /* 4 GB */
+#define DDR_8192MB      (8192 * MB)    /* 8 GB */
+#define DDR_12288MB     (12288 * MB)   /* 12 GB */
+#define DDR_16384MB     (16384 * MB)   /* 16 GB */
+#define DDR_18432MB     (18432 * MB)   /* 18 GB */
+#define DDR_24576MB     (24576 * MB)   /* 24 GB */
+#define DDR_32768MB     (32768 * MB)   /* 32 GB */
+#define DDR_36864MB     (36864 * MB)   /* 36 GB */
+#define DDR_49152MB     (49152 * MB)   /* 48 GB */
+#define DDR_65536MB     (65536 * MB)   /* 64 GB */
+#define DDR_98304MB     (98304 * MB)   /* 96 GB */
+#define DDR_131072MB    (131072 * MB)  /* 128 GB */
 
 typedef enum {
-  DDRTYPE_8192MB = 1,
-  DDRTYPE_12288MB,
-  DDRTYPE_18432MB,
-  DDRTYPE_24576MB,
-  DDRTYPE_36864MB,
-  DDRTYPE_49152MB,
-  DDRTYPE_65536MB,
+  DDRTYPE_1024MB = 1,   /* 1 GB */
+  DDRTYPE_2048MB,       /* 2 GB */
+  DDRTYPE_4096MB,       /* 4 GB */
+  DDRTYPE_8192MB,       /* 8 GB */
+  DDRTYPE_12288MB,      /* 12 GB */
+  DDRTYPE_16384MB,      /* 16 GB */
+  DDRTYPE_18432MB,      /* 18 GB */
+  DDRTYPE_24576MB,      /* 24 GB */
+  DDRTYPE_32768MB,      /* 32 GB */
+  DDRTYPE_36864MB,      /* 36 GB */
+  DDRTYPE_49152MB,      /* 48 GB */
+  DDRTYPE_65536MB,      /* 64 GB */
+  DDRTYPE_98304MB,      /* 96 GB */
+  DDRTYPE_131072MB,     /* 128 GB */
 } DdrType;
+
+/*
+ * DDR type is encoded in HlosSubType across two non-contiguous bit fields:
+ *   bits [10:8]  = lower 3 bits of DDR type
+ *   bits [13:12] = upper 2 bits of DDR type
+ *
+ * This allows up to 32 DDR type values. Types 1-7 use only bits [10:8];
+ * types 8+ use bits [13:12] as well.
+ *
+ * Packed values are monotonically increasing, so <= comparisons remain valid.
+ */
+#define DDR_TYPE_TO_HLOS(type) \
+    ((((type) >> 3) << 12) | (((type) & 0x7) << 8))
 
 struct BoardInfo {
   EFI_PLATFORMINFO_PLATFORM_INFO_TYPE PlatformInfo;
