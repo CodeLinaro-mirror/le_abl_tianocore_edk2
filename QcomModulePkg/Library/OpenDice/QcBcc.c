@@ -73,10 +73,11 @@ static BccRoot_t BccRoot;
 
 /* API fetches BCC size from BCC service*/
 static EFI_STATUS
-GetRkpBCCSize (VOID)
+GetRkpBCCSize (BOOLEAN IsSdvDice)
 {
   EFI_STATUS Status = EFI_SUCCESS;
   RkpBCCInfo BccInfo = {0};
+  UINT32 BccClientUID;
 
   // Locate QCOM_SCM_PROTOCOL.
   Status = gBS->LocateProtocol (&gQcomScmProtocolGuid, NULL,
@@ -98,12 +99,14 @@ GetRkpBCCSize (VOID)
     goto out2;
   }
 
-  Status = IClientEnvOpen (ClientEnvObj, CRkpBCCABL_UID, &AppClientObj);
+  BccClientUID = IsSdvDice ? CRkpBCCSDV_UID : CRkpBCCABL_UID;
+
+  Status = IClientEnvOpen (ClientEnvObj, BccClientUID, &AppClientObj);
   if (Object_isERROR (Status) ||
       Object_isNull (AppClientObj)) {
     DEBUG ((EFI_D_ERROR,
             "GetRkpBCCSize: Failed to get App Client, Status: (0x%x) UID=%d\n",
-            Status, CRkpBCCABL_UID));
+            Status, BccClientUID));
     goto out2;
   }
 
@@ -128,10 +131,11 @@ out2:
 
 /* This API fetches RkpBCC from BCC Service*/
 static EFI_STATUS
-GetRkpBCC (UINT8 *bcc, size_t *bccValidSize)
+GetRkpBCC (UINT8 *bcc, size_t *bccValidSize, BOOLEAN IsSdvDice)
 {
   EFI_STATUS Status = EFI_SUCCESS;
   Object BccNextStageSecret = Object_NULL;
+  UINT32 BccClientUID;
 
   if (pQcomScmProtocol == NULL) {
     // Locate QCOM_SCM_PROTOCOL.
@@ -157,13 +161,15 @@ GetRkpBCC (UINT8 *bcc, size_t *bccValidSize)
     }
   }
 
+  BccClientUID = IsSdvDice ? CRkpBCCSDV_UID : CRkpBCCABL_UID;
+
   if (Object_isNull (AppClientObj)) {
-    Status = IClientEnvOpen (ClientEnvObj, CRkpBCCABL_UID, &AppClientObj);
+    Status = IClientEnvOpen (ClientEnvObj, BccClientUID, &AppClientObj);
     if (Object_isERROR (Status) ||
         Object_isNull (AppClientObj)) {
       DEBUG ((EFI_D_ERROR,
               "GetRkpBCC: Failed to get App Client, Status: (0x%x) UID=%d\n",
-              Status, CRkpBCCABL_UID));
+              Status, BccClientUID));
       goto out;
     }
   }
@@ -242,11 +248,13 @@ DiceResult
 GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
                    size_t BccArtifactsBufferSize,
                    size_t *BccArtifactsValidSize,
+                   BOOLEAN IsSdvDice,
                    BccParams_t BccParamsRecvdFromAVB)
 #else
 GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
                    size_t BccArtifactsBufferSize,
-                   size_t *BccArtifactsValidSize)
+                   size_t *BccArtifactsValidSize,
+                   BOOLEAN IsSdvDice)
 #endif
 {
   UINT8 UdsPrivateKeySeed[DICE_PRIVATE_KEY_SEED_SIZE] = {0};
@@ -264,7 +272,11 @@ GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   // Fill some hard code values here for now. AVB team has to provide
   // the real values.
   BccParams_t BccParamsRecvdFromAVB = {{0}};
-  memcpy ((void *)BccParamsRecvdFromAVB.ChildImage.ComponentName, "pvmfw", 5);
+  if (IsSdvDice) {
+    memcpy ((void *)BccParamsRecvdFromAVB.ChildImage.ComponentName, "PVM", 3);
+  } else {
+    memcpy ((void *)BccParamsRecvdFromAVB.ChildImage.ComponentName, "pvmfw", 5);
+  }
 #endif
 
   assert (FinalEncodedBccArtifacts);
@@ -313,7 +325,10 @@ GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   BccRoot.ChildImage.BccCfgDesc.configs =
       DICE_ANDROID_CONFIG_COMPONENT_NAME |
       DICE_ANDROID_CONFIG_SECURITY_VERSION |
-      DICE_ANDROID_CONFIG_COMPONENT_VERSION | DICE_ANDROID_CONFIG_RKP_VM_MARKER;
+      DICE_ANDROID_CONFIG_COMPONENT_VERSION;
+  if (!IsSdvDice) {
+    BccRoot.ChildImage.BccCfgDesc.configs |= DICE_ANDROID_CONFIG_RKP_VM_MARKER;
+  }
 
   //---------------------------------------------------------------------
   //                  Derive Private Key Seed from UDS
@@ -415,11 +430,13 @@ DiceResult
 GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
                    size_t BccArtifactsBufferSize,
                    size_t *BccArtifactsValidSize,
+                   BOOLEAN IsSdvDice,
                    BccParams_t BccParamsRecvdFromAVB)
 #else
 GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
                    size_t BccArtifactsBufferSize,
-                   size_t *BccArtifactsValidSize)
+                   size_t *BccArtifactsValidSize,
+                   BOOLEAN IsSdvDice)
 #endif
 {
 
@@ -435,7 +452,11 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   // Fill some hard code values here for now. AVB team has to provide
   // the real values.
   BccParams_t BccParamsRecvdFromAVB = {{0}};
-  memcpy ((void *)BccParamsRecvdFromAVB.ChildImage.ComponentName, "pvmfw", 5);
+  if (IsSdvDice) {
+    memcpy ((void *)BccParamsRecvdFromAVB.ChildImage.ComponentName, "PVM", 3);
+  } else {
+    memcpy ((void *)BccParamsRecvdFromAVB.ChildImage.ComponentName, "pvmfw", 5);
+  }
 #endif
 
   assert (FinalEncodedBccArtifacts);
@@ -443,7 +464,7 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   assert (BccArtifactsBufferSize >= BCC_ARTIFACTS_WITH_BCC_TOTAL_SIZE);
 
   /* Fetches the size of BCC from RKP BCC Service */
-  Status = GetRkpBCCSize ();
+  Status = GetRkpBCCSize (IsSdvDice);
   switch (Status) {
     case IOpener_ERROR_NOT_FOUND:
     case IOpener_ERROR_PRIVILEGE:
@@ -458,7 +479,7 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   }
 
   // Fetch BCC from QTEE BCC service
-  Status = GetRkpBCC (NextBccEncodedCDIs, &NextBccEncodedCDIsValidSize);
+  Status = GetRkpBCC (NextBccEncodedCDIs, &NextBccEncodedCDIsValidSize, IsSdvDice);
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Failed to Fetch HW RkpBCC:%r. Generate SW BCC\n",
             Status));
@@ -516,7 +537,10 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   BccRoot.ChildImage.BccCfgDesc.configs =
       DICE_ANDROID_CONFIG_COMPONENT_NAME |
       DICE_ANDROID_CONFIG_SECURITY_VERSION |
-      DICE_ANDROID_CONFIG_COMPONENT_VERSION | DICE_ANDROID_CONFIG_RKP_VM_MARKER;
+      DICE_ANDROID_CONFIG_COMPONENT_VERSION;
+  if (!IsSdvDice) {
+    BccRoot.ChildImage.BccCfgDesc.configs |= DICE_ANDROID_CONFIG_RKP_VM_MARKER;
+  }
 
   //---------------------------------------------------------------------
   //           CBOR Encode BCC Config Descriptor Parameters
@@ -564,11 +588,13 @@ DiceResult
 GetBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
                  size_t BccArtifactsBufferSize,
                  size_t *BccArtifactsValidSize,
+                 BOOLEAN IsSdvDice,
                  BccParams_t BccParamsRecvdFromAVB)
 #else
 GetBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
                  size_t BccArtifactsBufferSize,
-                 size_t *BccArtifactsValidSize)
+                 size_t *BccArtifactsValidSize,
+                 BOOLEAN IsSdvDice)
 #endif
 {
   EFI_STATUS Status = EFI_SUCCESS;
@@ -582,20 +608,22 @@ GetBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
 #ifndef USE_DUMMY_BCC
     Status =
         GetHWBccArtifacts (FinalEncodedBccArtifacts, BccArtifactsBufferSize,
-                           BccArtifactsValidSize, BccParamsRecvdFromAVB);
+                           BccArtifactsValidSize, IsSdvDice, BccParamsRecvdFromAVB);
     if (Status == kDiceResultNotSupported) {
       DEBUG ((EFI_D_ERROR, "HWBCC Failed: Not Supported, Falling Back to SWBCC\n"));
       Status =
           GetSWBccArtifacts (FinalEncodedBccArtifacts, BccArtifactsBufferSize,
-                             BccArtifactsValidSize, BccParamsRecvdFromAVB);
+                             BccArtifactsValidSize, IsSdvDice, BccParamsRecvdFromAVB);
     }
 #else
     Status = GetHWBccArtifacts (FinalEncodedBccArtifacts,
-                                BccArtifactsBufferSize, BccArtifactsValidSize);
+                                BccArtifactsBufferSize, BccArtifactsValidSize,
+                                IsSdvDice);
     if (Status == kDiceResultNotSupported) {
       DEBUG ((EFI_D_ERROR, "HWBCC Failed: Not Supported, Falling Back to SWBCC\n"));
       Status = GetSWBccArtifacts (FinalEncodedBccArtifacts,
-                                  BccArtifactsBufferSize, BccArtifactsValidSize);
+                                  BccArtifactsBufferSize, BccArtifactsValidSize,
+                                  IsSdvDice);
     }
 #endif
     if (Status != EFI_SUCCESS) {

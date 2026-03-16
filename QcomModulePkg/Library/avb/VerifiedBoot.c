@@ -1767,6 +1767,18 @@ LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume,
         GUARD (AppendVBCmdLine (Info, " root=PARTLABEL=system_a"));
   }
 
+#ifndef USE_DUMMY_BCC
+  if (Info->HasSdvDiceEnabled) {
+    EFI_STATUS BccStatus = PopulateBccParams (SlotData,
+                                              Info,
+                                              BccParams);
+    if (BccStatus != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "VB2: PopulateBccParams failed with Status: %r\n",
+                BccStatus));
+    }
+  }
+#endif
+
 out:
   if (Status != EFI_SUCCESS) {
     if (SlotData != NULL) {
@@ -2083,6 +2095,11 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume,
     FreePages (RecoveryHdr,
                ALIGN_PAGES (BOOT_IMG_MAX_PAGE_SIZE, ALIGNMENT_MASK_4KB));
   }
+
+  Info->HasSdvDiceEnabled = false;
+#ifdef SDV_DICE_ENABLED
+  Info->HasSdvDiceEnabled = true;
+#endif
 
 get_ptn_name:
   /* Get Partition Name*/

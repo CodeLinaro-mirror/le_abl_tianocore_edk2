@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc.
- * All rights reserved. SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef __BCC_H__
@@ -101,6 +101,9 @@ typedef struct BccParams {
  *                                        encode BCC Artifacts returned
  *                                        in the BCC encoder buffer
  *
+ *    [IN] IsSdvDice                     - True for SDV DICE use case,
+ *                                        False otherwise.
+ *
  * Returns:
  *
  *    kDiceResultOk                       - On Success
@@ -110,7 +113,8 @@ typedef struct BccParams {
 DiceResult
 GetBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
                  size_t BccArtifactsBufferSize,
-                 size_t *BccArtifactsValidSize
+                 size_t *BccArtifactsValidSize,
+                 BOOLEAN IsSdvDice
 #ifndef USE_DUMMY_BCC
                  ,
                  BccParams_t BccParamsRecvdFromAVB
