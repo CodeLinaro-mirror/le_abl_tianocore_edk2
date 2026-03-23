@@ -1032,6 +1032,7 @@ PatchGpt (UINT8 *Gpt,
   UINT8 *SecondaryGptHeader;
   //define as 64 bit unsigned int
   UINT64 *LastPartitionEntry;
+  UINT64 *LastPartitionName;
   UINT64 NumSectors;
   UINT32 Offset;
   UINT32 TotalPart = 0;
@@ -1071,6 +1072,16 @@ PatchGpt (UINT8 *Gpt,
     TotalPart++;
     LastPartitionEntry = (UINT64 *)
       (PrimaryGptHeader + BlkSz + TotalPart * PARTITION_ENTRY_SIZE);
+  }
+
+  /* Some GPT layouts include a trailing partition entry named "last_parti".
+   * Even though its GUID is zero, it must still be counted in TotalPart so
+   * that last_parti is treated as the expandable final partition.
+   */
+  LastPartitionName = (UINT64 *)
+    (PrimaryGptHeader + BlkSz + TotalPart * PARTITION_ENTRY_SIZE + PARTITION_NAME_OFFSET);
+  if (*LastPartitionName != 0 ) {
+    TotalPart++;
   }
 
   LastPartOffset =
