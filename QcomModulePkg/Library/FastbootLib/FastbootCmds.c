@@ -3121,6 +3121,7 @@ is_display_supported ( VOID )
    return 1;
 }
 
+#ifndef FLASHING_LOCK_WITHOUT_MISC_PART
 #ifndef TARGET_BOARD_TYPE_AUTO
 STATIC VOID
 RebootDeviceRecovery ( VOID )
@@ -3137,6 +3138,7 @@ RebootDeviceRecovery ( VOID )
 {
 
 }
+#endif
 #endif
 
 STATIC VOID
@@ -3182,7 +3184,18 @@ SetDeviceUnlock (UINT32 Type, BOOLEAN State)
          return;
     }
     FastbootOkay ("");
+#ifdef FLASHING_LOCK_WITHOUT_MISC_PART
+    Status = FastbootErasePartition(L"userdata");
+    if (Status != EFI_SUCCESS) {
+       DEBUG ((EFI_D_ERROR,"Failed to erase userdata partition\n"));
+       AsciiSPrint (response, MAX_RSP_SIZE, "Failed to erase userdata: %r", Status);
+       FastbootFail (response);
+       return;
+    }
+    RebootDevice (FASTBOOT_MODE);
+#else
     RebootDeviceRecovery ();
+#endif
   }
 }
 #endif

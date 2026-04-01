@@ -217,6 +217,9 @@
   !if $(SOC_OP_MODE_IN_CMDLINE) == 1
       GCC:*_*_*_CC_FLAGS = -DSOC_OP_MODE_IN_CMDLINE
   !endif
+  !if $(FLASHING_LOCK_WITHOUT_MISC_PART) == 1
+      GCC:*_*_*_CC_FLAGS = -DFLASHING_LOCK_WITHOUT_MISC_PART
+  !endif
 
 [PcdsFixedAtBuild.common]
 
