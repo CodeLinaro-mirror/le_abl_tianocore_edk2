@@ -27,6 +27,9 @@ fi
 if [ -n "${USE_DUMMY_BCC}" ]; then
   MAKE_FLAGS+=("USE_DUMMY_BCC=${USE_DUMMY_BCC}")
 fi
+if [ -n "${SDV_DICE_ENABLED}" ]; then
+  MAKE_FLAGS+=("SDV_DICE_ENABLED=${SDV_DICE_ENABLED}")
+fi
 if [ -n "${EARLY_ETH_ENABLED}" ]; then
   MAKE_FLAGS+=("EARLY_ETH_ENABLED=${EARLY_ETH_ENABLED}")
 fi

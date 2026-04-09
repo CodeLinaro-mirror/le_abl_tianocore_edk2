@@ -27,9 +27,9 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center, Inc. are provided under the
+ * Changes from Qualcomm Technologies, Inc. are provided under the
  * following license:
- * Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -159,6 +159,7 @@ typedef struct BootInfo {
   VOID *VBData;
   UINT32 HeaderVersion;
   BOOLEAN HasBootInitRamdisk;
+  BOOLEAN HasSdvDiceEnabled;
 } BootInfo;
 
 typedef struct BootLinuxParamlist {

@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc.
- * All rights reserved. SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "AvbPopulateBccParams.h"
@@ -82,13 +82,16 @@ out:
  * populated.
  */
 STATIC EFI_STATUS
-PopulateBccImgParams (AvbSlotVerifyData *SlotData, BccParams_t *bcc_params,
-                      uint32_t PartitionIndex)
+PopulateBccImgParams (AvbSlotVerifyData *SlotData, BootInfo *Info,
+                      BccParams_t *bcc_params, uint32_t PartitionIndex)
 {
     EFI_STATUS Status = EFI_SUCCESS;
     AvbSHA512Ctx CodeCtx = {{0}};
     uint8_t* CodeDigest = NULL;
     uint32_t PnameLen = 0;
+    char* SdvDiceComponentName = "PVM";
+    uint32_t VbmetaIndex;
+    char** partition_name = NULL;
 
     Status = PopulateAuthorityHash (SlotData, bcc_params);
     if (Status != EFI_SUCCESS) {
@@ -102,17 +105,42 @@ PopulateBccImgParams (AvbSlotVerifyData *SlotData, BccParams_t *bcc_params,
         SlotData->loaded_partitions[PartitionIndex].data == NULL ||
         bcc_params->ChildImage.CodeHash == NULL) {
         Status = EFI_INVALID_PARAMETER;
+        goto out;
     }
-    PnameLen =
-        sizeof (SlotData->loaded_partitions[PartitionIndex].partition_name);
+
+    if (!Info->HasSdvDiceEnabled) {
+        partition_name = &SlotData->loaded_partitions[PartitionIndex].partition_name;
+    } else {
+        /* For SDV, the ComponentName is "PVM", and not the image name. */
+        partition_name = &SdvDiceComponentName;
+    }
+
+    PnameLen = avb_strlen(*partition_name);
+    if (PnameLen >= BCC_COMPONENT_NAME_BUFFER_MAX_SIZE) {
+      Status = EFI_BUFFER_TOO_SMALL;
+      goto out;
+    }
     avb_memcpy (bcc_params->ChildImage.ComponentName,
-                SlotData->loaded_partitions[PartitionIndex].partition_name,
+                *partition_name,
                 PnameLen);
+    bcc_params->ChildImage.ComponentName[PnameLen] = '\0';
 
     avb_sha512_init (&CodeCtx);
     avb_sha512_update (&CodeCtx,
                        SlotData->loaded_partitions[PartitionIndex].data,
                        SlotData->loaded_partitions[PartitionIndex].data_size);
+
+    /* For SDV, Vbmeta images are also included in the CodeDigest. */
+    if (Info->HasSdvDiceEnabled) {
+      for (VbmetaIndex = 0; VbmetaIndex < SlotData->num_vbmeta_images; VbmetaIndex++) {
+            if (SlotData->vbmeta_images[VbmetaIndex].vbmeta_data != NULL) {
+              avb_sha512_update (&CodeCtx,
+                SlotData->vbmeta_images[VbmetaIndex].vbmeta_data,
+                SlotData->vbmeta_images[VbmetaIndex].vbmeta_size);
+            }
+      }
+    }
+
     CodeDigest = avb_sha512_final (&CodeCtx);
     if (CodeDigest == NULL) {
         Status = EFI_INVALID_PARAMETER;
@@ -128,10 +156,20 @@ out:
  * includes Authority hash, Code Hash and Mode.
  */
 EFI_STATUS
-PopulateBccParams (AvbSlotVerifyData *SlotData, BOOLEAN BootIntoRecovery,
+PopulateBccParams (AvbSlotVerifyData *SlotData, BootInfo *Info,
                    BccParams_t *bcc_params)
 {
-   EFI_STATUS Status = EFI_SUCCESS;
+    EFI_STATUS Status = EFI_SUCCESS;
+    char* partition_measured_pvmfw = "pvmfw";
+    char* partition_measured_sdv = "boot";
+    char** partition_measured = NULL;
+
+    if (Info->HasSdvDiceEnabled) {
+       partition_measured = &partition_measured_sdv;
+    }
+    else {
+       partition_measured = &partition_measured_pvmfw;
+    }
 
     if (SlotData == NULL ||
         bcc_params == NULL) {
@@ -142,7 +180,7 @@ PopulateBccParams (AvbSlotVerifyData *SlotData, BOOLEAN BootIntoRecovery,
     }
 
     // Set the DICE mode
-    if (BootIntoRecovery) {
+    if (Info->BootIntoRecovery) {
          bcc_params->Mode = kDiceModeMaintenance;
     } else if (IsUnlocked ()) {
          bcc_params->Mode = kDiceModeDebug;
@@ -161,15 +199,15 @@ PopulateBccParams (AvbSlotVerifyData *SlotData, BOOLEAN BootIntoRecovery,
     }
 #endif
 
-   for (UINTN LoadedIndex = 0; LoadedIndex < SlotData->num_loaded_partitions;
+    for (UINTN LoadedIndex = 0; LoadedIndex < SlotData->num_loaded_partitions;
         LoadedIndex++) {
         DEBUG ((EFI_D_ERROR, "Loaded Partition: %a\n",
                 SlotData->loaded_partitions[LoadedIndex].partition_name));
         if (avb_strcmp (SlotData->loaded_partitions[LoadedIndex].partition_name,
-                        "pvmfw") == 0 ) {
+                        *partition_measured) == 0 ) {
             if (SlotData->loaded_partitions[LoadedIndex].verify_result ==
                 AVB_SLOT_VERIFY_RESULT_OK) {
-                Status = PopulateBccImgParams (SlotData, bcc_params,
+                Status = PopulateBccImgParams (SlotData, Info, bcc_params,
                                                LoadedIndex);
                 if (Status != EFI_SUCCESS) {
                     DEBUG ((EFI_D_ERROR, "VB: PopulateBccImgParams: failed with"
@@ -177,12 +215,12 @@ PopulateBccParams (AvbSlotVerifyData *SlotData, BOOLEAN BootIntoRecovery,
                     goto out;
                 }
                 DEBUG ((EFI_D_INFO, "VB: Bcc Params populated\n"));
-        } else {
-            SetDummyBccParams (bcc_params);
+            } else {
+                SetDummyBccParams (bcc_params);
+            }
+            break;
         }
-        break;
-      }
-  }
+    }
 out:
   return Status;
 }
