@@ -852,10 +852,8 @@ PartitionHasMultiSlot (CONST CHAR16 *Pname)
   for (i = 0; i < PartitionCount; i++) {
     if (!(StrnCmp (PtnEntries[i].PartEntry.PartitionName, Pname, Len))) {
       if (PtnEntries[i].PartEntry.PartitionName[Len] == L'_' &&
-          (PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'a')) {
-        SlotCount++;
-      } else if (PtnEntries[i].PartEntry.PartitionName[Len] == L'_' &&
-                 (PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'b')) {
+          (PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'a' ||
+           PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'b')) {
         if (IsRecoveryInfo ()) {
           DEBUG (( EFI_D_INFO, "Multislot because RecoveryInfo Detected\n"));
           return TRUE;
