@@ -27,6 +27,11 @@
 # * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #*/
 
+#/*
+# * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+# * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# * SPDX-License-Identifier: BSD-3-Clause-Clear
+# */
 
 [Defines]
 	INF_VERSION                    = 0x00010005
@@ -42,6 +47,9 @@
 
 [BuildOptions.AARCH64]
   GCC:*_*_*_CC_FLAGS = $(SDLLVM_COMPILE_ANALYZE) $(SDLLVM_ANALYZE_REPORT)
+  GCC:*_*_*_CC_FLAGS = $(PVMFW_BCC_ENABLED)
+  GCC:*_*_*_CC_FLAGS = $(PVMFW_USE_DUMMY_BCC)
+  GCC:*_*_*_CC_FLAGS = $(PVMFW_REVERIFY)
 
 [Sources]
    libavb/avb_chain_partition_descriptor.c
@@ -66,6 +74,7 @@
    VerifiedBoot.c
    KeymasterClient.c
    Hash2Client.c
+   AvbPopulateBccParams.c
 
 [Packages]
 	ArmPkg/ArmPkg.dec

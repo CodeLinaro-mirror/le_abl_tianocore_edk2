@@ -47,7 +47,8 @@ found at
 */
 
 /*
- * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the
+ * following license:
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -2810,7 +2811,11 @@ CmdContinue (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
   BootInfo Info = {0};
 
   Info.MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
-  Status = LoadImageAndAuth (&Info, FALSE, FALSE);
+  Status = LoadImageAndAuth (&Info, FALSE, FALSE
+  #ifndef USE_DUMMY_BCC
+                            , &BccParamsRecvdFromAVB
+  #endif
+                            );
   if (Status != EFI_SUCCESS) {
     AsciiSPrint (Resp, sizeof (Resp), "Failed to load image from partition: %r",
                  Status);
@@ -3040,7 +3045,11 @@ CmdBoot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
     }
   }
 
-  Status = LoadImageAndAuth (&Info, FALSE, FALSE);
+  Status = LoadImageAndAuth (&Info, FALSE, FALSE
+  #ifndef USE_DUMMY_BCC
+                            , &BccParamsRecvdFromAVB
+  #endif
+                            );
   if (Status != EFI_SUCCESS) {
     AsciiSPrint (Resp, sizeof (Resp),
                  "Failed to load/authenticate boot image: %r", Status);
@@ -3112,6 +3121,7 @@ is_display_supported ( VOID )
    return 1;
 }
 
+#ifndef FLASHING_LOCK_WITHOUT_MISC_PART
 #ifndef TARGET_BOARD_TYPE_AUTO
 STATIC VOID
 RebootDeviceRecovery ( VOID )
@@ -3128,6 +3138,7 @@ RebootDeviceRecovery ( VOID )
 {
 
 }
+#endif
 #endif
 
 STATIC VOID
@@ -3173,7 +3184,18 @@ SetDeviceUnlock (UINT32 Type, BOOLEAN State)
          return;
     }
     FastbootOkay ("");
+#ifdef FLASHING_LOCK_WITHOUT_MISC_PART
+    Status = FastbootErasePartition(L"userdata");
+    if (Status != EFI_SUCCESS) {
+       DEBUG ((EFI_D_ERROR,"Failed to erase userdata partition\n"));
+       AsciiSPrint (response, MAX_RSP_SIZE, "Failed to erase userdata: %r", Status);
+       FastbootFail (response);
+       return;
+    }
+    RebootDevice (FASTBOOT_MODE);
+#else
     RebootDeviceRecovery ();
+#endif
   }
 }
 #endif
