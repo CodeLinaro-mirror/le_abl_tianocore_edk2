@@ -42,6 +42,7 @@
 #include <Library/VerifiedBootMenu.h>
 #include <Library/HypervisorMvCalls.h>
 #include <Library/Rtic.h>
+#include <Library/QcBcc.h>
 #include <Protocol/EFIMdtp.h>
 #include <Protocol/EFIScmModeSwitch.h>
 #include <libufdt_sysdeps.h>
@@ -975,6 +976,74 @@ GZipPkgCheck (BootParamlist *BootParamlistPtr)
   return EFI_SUCCESS;
 }
 
+#ifdef SDV_DICE_ENABLED
+STATIC BOOLEAN
+QueryDiceParams (UINT64 *DiceLoadAddr, UINT64 *DiceSizeReserved)
+{
+  EFI_STATUS Status;
+  EFI_STATUS SizeStatus;
+  UINTN DataSize = 0;
+
+  DataSize = sizeof (*DiceLoadAddr);
+  Status = gRT->GetVariable ((CHAR16 *)L"DiceBaseAddr", &gQcomTokenSpaceGuid,
+                          NULL, &DataSize, DiceLoadAddr);
+
+  DataSize = sizeof (*DiceSizeReserved);
+  SizeStatus = gRT->GetVariable ((CHAR16 *)L"DiceSize", &gQcomTokenSpaceGuid,
+                              NULL, &DataSize, DiceSizeReserved);
+
+  return (Status == EFI_SUCCESS &&
+          SizeStatus == EFI_SUCCESS);
+}
+
+STATIC EFI_STATUS
+GenerateSdvDiceArtifacts (BootInfo *Info, BootParamlist *BootParamlistPtr)
+{
+  UINT64 DiceLoadAddr = 0;
+  UINT64 DiceSizeReserved = 0;
+  UINT8 *FinalEncodedBccArtifacts = NULL;
+  size_t BccArtifactsValidSize = 0;
+  UINT8 Ret;
+  EFI_STATUS Status = EFI_SUCCESS;
+
+  if (!QueryDiceParams (&DiceLoadAddr, &DiceSizeReserved)) {
+    DEBUG ((EFI_D_ERROR, "Querying DICE memory parameters failed"));
+    Status = EFI_FAILURE;
+    return Status;
+  }
+
+  if (!DiceLoadAddr || !DiceSizeReserved) {
+    DEBUG ((EFI_D_ERROR, "Wrong DICE memory parameters"));
+    Status = EFI_FAILURE;
+    return Status;
+  }
+
+  FinalEncodedBccArtifacts = (UINT8 *)DiceLoadAddr;
+  BccArtifactsValidSize = DiceSizeReserved;
+
+  /* Generate BCC handover data*/
+  Ret =
+      GetBccArtifacts (FinalEncodedBccArtifacts,
+                       BCC_ARTIFACTS_WITH_BCC_TOTAL_SIZE, &BccArtifactsValidSize,
+                       TRUE
+#ifndef USE_DUMMY_BCC
+                       ,
+                       BccParamsRecvdFromAVB
+#endif
+);
+  if (Ret != 0) {
+    DEBUG ((EFI_D_ERROR, "BCC handover data generation failed\n"));
+    Status = EFI_FAILURE;
+    return Status;
+  }
+
+  DEBUG ((EFI_D_ERROR, "GenerateSdvDiceArtifacts: Generated at address 0x%x\n",
+          FinalEncodedBccArtifacts));
+
+  return Status;
+}
+#endif
+
 STATIC EFI_STATUS
 LoadAddrAndDTUpdate (BootInfo *Info, BootParamlist *BootParamlistPtr)
 {
@@ -1056,6 +1125,15 @@ LoadAddrAndDTUpdate (BootInfo *Info, BootParamlist *BootParamlistPtr)
                 BootParamlistPtr->RamdiskSize);
 
   RamdiskLoadAddr +=BootParamlistPtr->RamdiskSize;
+
+#ifdef SDV_DICE_ENABLED
+  if (Info->HasSdvDiceEnabled) {
+    Status = GenerateSdvDiceArtifacts (Info, BootParamlistPtr);
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Failed to generate DICE artifacs: %r\n", Status));
+    }
+  }
+#endif
 
   if (BootParamlistPtr->BootingWith32BitKernel) {
     if (CHECK_ADD64 (BootParamlistPtr->KernelLoadAddr,
@@ -1548,6 +1626,19 @@ BootLinux (BootInfo *Info)
   Status = LoadAddrAndDTUpdate (Info, &BootParamlistPtr);
   if (Status != EFI_SUCCESS) {
        return Status;
+  }
+
+  /* Sends Milestone Call to Keymaster */
+  UINT32  AVBVersion = GetAVBVersion ();
+  if (AVBVersion != NO_AVB) {
+    if (AVBVersion != AVB_LE) {
+      DEBUG ((EFI_D_VERBOSE, "Sending Milestone Call\n"));
+      Status = Info->VbIntf->VBSendMilestone (Info->VbIntf);
+      if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "Error sending milestone call to TZ\n"));
+        return Status;
+      }
+    }
   }
 
 #ifdef SCMI_UPDATES_NEEDED
