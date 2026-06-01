@@ -17,7 +17,7 @@ ifeq ($(BUILD_NATIVE_AARCH64),true)
 	export PVM_SKIP_DTBO := true
 	export DISABLE_PARALLEL_DOWNLOAD_FLASH := false
 	export DYNAMIC_PARTITION_SUPPORT := 1
-	export USER_BUILD_VARIANT := false
+	export USER_BUILD_VARIANT := 0
 	export BOOTLOADER_OUT := $(pwd)/obj/ABL_OBJ
 	export CLANG_BIN := /usr/bin/
 	export CLANG_PREFIX := /usr/bin/aarch64-redhat-linux- 
@@ -66,7 +66,14 @@ ABL_OUT := $(BOOTLOADER_OUT)/Build
 
 WORKSPACE=$(BUILDDIR)
 TARGET_TOOLS := CLANG35
-TARGET := DEBUG
+# ABL_BUILD_TYPE selects the UEFI build mode: DEBUG (debug/user variants) or RELEASE (perf variant).
+# Passed from the Yocto recipe via EXTRA_OEMAKE; defaults to DEBUG for standalone/native builds.
+ABL_BUILD_TYPE ?= DEBUG
+# USER_BUILD_VARIANT and PERF_BUILD default to 0 (debug behaviour) when not supplied by the
+# caller, preserving pre-variant-support behaviour for any build that omits these variables.
+USER_BUILD_VARIANT ?= 0
+PERF_BUILD ?= 0
+TARGET := $(ABL_BUILD_TYPE)
 BUILD_ROOT := $(ABL_OUT)/$(TARGET)_$(TARGET_TOOLS)
 EDK_TOOLS := $(BUILDDIR)/BaseTools
 EDK_TOOLS_BIN := $(EDK_TOOLS)/Source/C/bin
@@ -316,6 +323,22 @@ else
 	FLASHING_LOCK_WITHOUT_MISC_PART := 0
 endif
 
+ifeq ($(USER_BUILD_VARIANT), 1)
+	USER_BUILD_VARIANT := 1
+else
+	USER_BUILD_VARIANT := 0
+endif
+
+ifeq ($(PERF_BUILD), 1)
+	PERF_BUILD := 1
+else
+	PERF_BUILD := 0
+endif
+
+ifneq (,$(filter 11,$(USER_BUILD_VARIANT)$(PERF_BUILD)))
+  $(error USER_BUILD_VARIANT and PERF_BUILD cannot both be 1 — set only one via VARIANT)
+endif
+
 export SDLLVM_COMPILE_ANALYZE := $(SDLLVM_COMPILE_ANALYZE)
 export SDLLVM_ANALYZE_REPORT := $(SDLLVM_ANALYZE_REPORT)
 
@@ -379,6 +402,7 @@ ABL_FV_IMG: $(EDK_TOOLS_PATH_MARK_FILE)
 	-D TARGET_BOARD_TYPE_AUTO=$(TARGET_BOARD_TYPE_AUTO) \
 	-D VERITY_LE=$(VERITY_LE) \
 	-D USER_BUILD_VARIANT=$(USER_BUILD_VARIANT) \
+	-D PERF_BUILD=$(PERF_BUILD) \
 	-D DISABLE_PARALLEL_DOWNLOAD_FLASH=$(DISABLE_PARALLEL_DOWNLOAD_FLASH) \
 	-D ENABLE_LE_VARIANT=$(ENABLE_LE_VARIANT) \
 	-D ENABLE_LV_ATOMIC_AB=$(ENABLE_LV_ATOMIC_AB) \
