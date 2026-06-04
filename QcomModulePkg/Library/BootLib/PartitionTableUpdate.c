@@ -1789,8 +1789,8 @@ EFI_STATUS HandleActiveSlotUnbootable (VOID)
     DEBUG ((EFI_D_VERBOSE, "FirstBoot, skipping slot Unbootable\n"));
     FirstBoot = FALSE;
   } else {
-    AttrEntry->Attributes |=
-        (PART_ATT_UNBOOTABLE_VAL) & (~PART_ATT_SUCCESSFUL_VAL);
+    AttrEntry->Attributes |= PART_ATT_UNBOOTABLE_VAL;
+    AttrEntry->Attributes &= ~PART_ATT_SUCCESSFUL_VAL;
     if (USE_RECOVERYINFO_GPT) {
       WriteRecoveryInfoMisc (&RecoveryInfoMisc);
     } else {
