@@ -247,6 +247,17 @@ endtest:
   return eResult;
 }
 
+#ifdef ENABLE_DC_TARGET
+EFI_STATUS GetPlatformTypeData(UINT32 *PlatformType)
+{
+  if(PlatformType == NULL){
+    return EFI_INVALID_PARAMETER;
+  }
+  *PlatformType = platform_board_info.PlatformInfo.platform;
+  return EFI_SUCCESS;
+}
+#endif
+
 STATIC EFI_STATUS
 GetPmicInfoExt (UINT32 PmicDeviceIndex,
                 EFI_PM_DEVICE_INFO_EXT_TYPE *pmic_info_ext)
