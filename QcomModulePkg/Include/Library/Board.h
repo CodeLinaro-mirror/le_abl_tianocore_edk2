@@ -156,6 +156,11 @@ EFI_STATUS BoardDdrType (UINT32 *Type);
 UINT32 BoardPlatformHlosSubType (VOID);
 VOID BoardSoftSKU (UINT32 *SKUId);
 UINT32 BoardSKUId (VOID);
+
+#ifdef ENABLE_DC_TARGET
+EFI_STATUS GetPlatformTypeData(UINT32 *PlatformType);
+#endif
+
 EFI_STATUS
 GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_FEATURE_ID FeatureID, UINT32 *FeatureVal);
 #endif

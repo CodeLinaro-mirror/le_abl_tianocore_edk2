@@ -163,6 +163,10 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
   /* set ROT and BootSatte only once per boot*/
   BOOLEAN SetRotAndBootState = FALSE;
 
+#ifdef ENABLE_DC_TARGET
+  UINT32 DeviceType;
+#endif
+
   DEBUG ((EFI_D_INFO, "Loader Build Info: %a %a\n", __DATE__, __TIME__));
   DEBUG ((EFI_D_VERBOSE, "LinuxLoader Load Address to debug ABL: 0x%llx\n",
          (UINTN)LinuxLoaderEntry & (~ (0xFFF))));
@@ -321,9 +325,24 @@ flashless_boot:
     Info.BootReasonAlarm = BootReasonAlarm;
     Info.FlashlessBoot = FlashlessBoot;
     Info.SilentBootMode = SilentBootMode;
-  #if HIBERNATION_SUPPORT_NO_AES
-    BootIntoHibernationImage (&Info, &SetRotAndBootState);
-  #endif
+
+#ifdef ENABLE_DC_TARGET
+    /* Identify the type of device for xip */
+    Status = GetPlatformTypeData(&DeviceType);
+    if(Status != EFI_SUCCESS){
+      DEBUG ((EFI_D_ERROR, "Error getting Platform type: %r\n", Status));
+      DeviceType = EFI_PLATFORMINFO_TYPE_UNKNOWN;
+    }
+
+    if(DeviceType == EFI_PLATFORMINFO_TYPE_DCP)
+      Info.XipEnable = TRUE;
+    else
+      Info.XipEnable = FALSE;
+#endif
+
+    #if HIBERNATION_SUPPORT_NO_AES
+      BootIntoHibernationImage (&Info, &SetRotAndBootState);
+    #endif
     Status = LoadImageAndAuth (&Info, FALSE, SetRotAndBootState
   #ifndef USE_DUMMY_BCC
                                , &BccParamsRecvdFromAVB

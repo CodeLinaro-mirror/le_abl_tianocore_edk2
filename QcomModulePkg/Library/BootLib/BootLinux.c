@@ -326,7 +326,14 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
    * Query the kernel load address and size from UEFI core, if it's not
    * successful use the predefined load addresses */
   if (QueryBootParams (&KernelLoadAddr, &KernelSizeReserved)) {
+#ifdef ENABLE_DC_TARGET
+    if(BootParamlistPtr->XipEnable){
+      BootParamlistPtr->KernelLoadAddr = BootParamlistPtr->KernelXipAddr;
+    }
+#else
     BootParamlistPtr->KernelLoadAddr = KernelLoadAddr;
+#endif
+    DEBUG ((EFI_D_VERBOSE, "KernelLoadAddr: 0x%x\n", BootParamlistPtr->KernelLoadAddr));
     if (BootParamlistPtr->BootingWith32BitKernel) {
       BootParamlistPtr->KernelLoadAddr += KERNEL_32BIT_LOAD_OFFSET;
     } else {
@@ -339,7 +346,13 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
         BootParamlistPtr->KernelLoadAddr += KERNEL_64BIT_LOAD_OFFSET;
       }
     }
+
+#ifdef ENABLE_DC_TARGET
+    KernelSizeReserved = 0x10000000;
+#endif
+
     BootParamlistPtr->KernelEndAddr = KernelLoadAddr + KernelSizeReserved;
+    DEBUG ((EFI_D_VERBOSE, "Hardcoded size of KernelSizeReserved: 0x%x \n", KernelSizeReserved));
   } else {
     DEBUG ((EFI_D_VERBOSE, "QueryBootParams Failed: "));
     /* If Query of boot params fails, RamdiskEndAddress is end of the
@@ -957,8 +970,18 @@ GZipPkgCheck (BootParamlist *BootParamlistPtr)
            ((VOID *)Kptr + DTB_OFFSET_LOCATION_IN_ARCH32_KERNEL_HDR),
            sizeof (BootParamlistPtr->DtbOffset));
     }
-    gBS->CopyMem ((VOID *)BootParamlistPtr->KernelLoadAddr, (VOID *)Kptr,
-                 BootParamlistPtr->KernelSize);
+
+#ifdef ENABLE_DC_TARGET
+    /* Skip kernel copying for XIP  */
+    if(!BootParamlistPtr->XipEnable){
+      gBS->CopyMem ((VOID *)BootParamlistPtr->KernelLoadAddr,(VOID *)Kptr,
+                    BootParamlistPtr->KernelSize);
+    }
+#else
+    gBS->CopyMem ((VOID *)BootParamlistPtr->KernelLoadAddr,(VOID *)Kptr,
+                    BootParamlistPtr->KernelSize);
+#endif
+
   }
 
   if (Kptr->magic_64 != KERNEL64_HDR_MAGIC) {
@@ -1544,6 +1567,13 @@ BootLinux (BootInfo *Info)
   if (Status != EFI_SUCCESS) {
     return Status;
   }
+
+#ifdef ENABLE_DC_TARGET
+  if(Info->XipEnable){
+    BootParamlistPtr.XipEnable = Info->XipEnable;
+    BootParamlistPtr.KernelXipAddr = Info->KernelXipAddr;
+  }
+#endif
 
   Status = UpdateBootParams (&BootParamlistPtr);
   if (Status != EFI_SUCCESS) {
