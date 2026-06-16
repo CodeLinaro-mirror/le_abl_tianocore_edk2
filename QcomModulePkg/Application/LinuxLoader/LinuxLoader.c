@@ -207,6 +207,15 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
   }
 
   UpdatePartitionEntries ();
+  if (USE_RECOVERYINFO_GPT) {
+    Status = UpdateRecoveryInfoMisc ();
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Failed to update GPT attributes in recoveryinfo"
+                           "partition: %r\n", Status));
+      goto stack_guard_update_default;
+    }
+  }
+
   /*Check for multislot boot support*/
   MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
   if (MultiSlotBoot) {
