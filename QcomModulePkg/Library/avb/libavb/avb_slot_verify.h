@@ -22,6 +22,12 @@
  * SOFTWARE.
  */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #if !defined(AVB_INSIDE_LIBAVB_H) && !defined(AVB_COMPILATION)
 #error "Never include this file directly, include libavb.h instead."
 #endif
@@ -149,6 +155,11 @@ const char* avb_slot_verify_result_to_string(AvbSlotVerifyResult result);
  * needs to make sure that the preloaded data outlives this
  * |AvbPartitionData| structure.
  *
+ * |digest| points to the heap-allocated image digest computed during
+ * verification, |digest_size| bytes long. |digest_type| identifies the
+ * hash algorithm used (SHA-256 or SHA-512). Both are owned by this
+ * structure and freed by |avb_slot_verify_data_free|.
+ *
  * Note that this is strictly less than the partition size - it's only
  * the image stored there, not the entire partition nor any of the
  * metadata.
@@ -159,6 +170,9 @@ typedef struct {
   size_t data_size;
   bool preloaded;
   AvbSlotVerifyResult verify_result;
+  uint8_t *digest;
+  size_t digest_size;
+  AvbDigestType digest_type;
 } AvbPartitionData;
 
 /* AvbVBMetaData contains a vbmeta struct loaded from a partition when
