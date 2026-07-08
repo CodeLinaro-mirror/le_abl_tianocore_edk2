@@ -55,8 +55,8 @@
  * [including the GNU Public Licence.] */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include "../../../../../opendice-util.h"
@@ -213,7 +213,9 @@ int HMAC_Final(HMAC_CTX *ctx, uint8_t *out, unsigned int *out_len) {
       !EVP_MD_CTX_copy_ex(&ctx->md_ctx, &ctx->o_ctx) ||
       !EVP_DigestUpdate(&ctx->md_ctx, buf, i) ||
       !EVP_DigestFinal_ex(&ctx->md_ctx, out, out_len)) {
-    *out_len = 0;
+    if (out_len != NULL) {
+      *out_len = 0;
+    }
     goto out;
   }
 
