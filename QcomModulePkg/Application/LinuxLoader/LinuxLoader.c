@@ -221,7 +221,7 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
   }
 
   /*Check for multislot boot support*/
-  MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+  MultiSlotBoot = IsBootMultiSlot ();
   if (MultiSlotBoot) {
     DEBUG ((EFI_D_VERBOSE, "Multi Slot boot is supported\n"));
     FindPtnActiveSlot ();
