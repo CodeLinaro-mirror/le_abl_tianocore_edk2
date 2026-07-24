@@ -82,7 +82,7 @@
 #define PLATFORM_SUBTYPE_MASK (0x000000ff)
 #define OEM_ID_MASK (0xff000000)
 #define OEM_ID_SHIFT 24
-#define DDR_MASK (0x00000700)
+#define DT_DDR_MASK (0x00000f00)
 #define BOOT_DEVICE_MASK (0x000f0000)
 
 typedef enum {
