@@ -382,7 +382,7 @@ INT32 PartitionVerify (VOID* Arg)
                                   CurrentChunkSize,
                                   ThreadVerify->IsFinal);
     } else {
-       if (!Sha256Ctx) {
+       if (!Sha512Ctx) {
         Status = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
         goto out;
      }
@@ -477,7 +477,10 @@ AvbSlotVerifyResult LoadAndVerifyHashPartitionInParallel (
     CONST uint8_t* DescDigest,
     CONST uint8_t* DescSalt,
     uint8_t* image_buf,
-    uint64_t ImageSize) {
+    uint64_t ImageSize,
+    uint8_t* out_digest,
+    size_t* out_digest_len,
+    AvbDigestType* out_digest_type) {
   AvbSHA256Ctx Sha256Ctx;
   AvbSHA512Ctx Sha512Ctx;
   AvbSlotVerifyResult Status;
@@ -578,6 +581,29 @@ AvbSlotVerifyResult LoadAndVerifyHashPartitionInParallel (
 
  /*Wait for threads to complete*/
   KernIntf->Sem->SemWait (SemMainThread);
+
+  /* Copy the computed digest out before the SHA context goes out of scope.
+   * IsFinal guards against the case where the verify thread aborted early
+   * (e.g., IO error) before avb_sha{256,512}_final was ever called. */
+  if (out_digest == NULL || out_digest_len == NULL || out_digest_type == NULL) {
+    Status = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
+    goto out;
+  }
+  if (ThreadVerifyInfo->IsFinal) {
+    if (Sha256Hash) {
+      avb_memcpy (out_digest, Sha256Ctx.buf, AVB_SHA256_DIGEST_SIZE);
+      *out_digest_len = AVB_SHA256_DIGEST_SIZE;
+      *out_digest_type = AVB_DIGEST_TYPE_SHA256;
+    } else {
+      avb_memcpy (out_digest, Sha512Ctx.buf, AVB_SHA512_DIGEST_SIZE);
+      *out_digest_len = AVB_SHA512_DIGEST_SIZE;
+      *out_digest_type = AVB_DIGEST_TYPE_SHA512;
+    }
+  } else {
+    *out_digest_len = 0;
+    *out_digest_type = AVB_DIGEST_TYPE_SHA256;
+  }
+
   if (ThreadLoadInfo->Status != AVB_SLOT_VERIFY_RESULT_OK) {
     Status = ThreadLoadInfo->Status;
     goto out;

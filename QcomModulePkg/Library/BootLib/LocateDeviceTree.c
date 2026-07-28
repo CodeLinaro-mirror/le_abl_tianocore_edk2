@@ -64,6 +64,16 @@ BOOLEAN GetDtboNeeded (VOID)
 {
   return DtboNeed;
 }
+
+STATIC UINT32 GetBoardDdrValue()
+{
+  UINT32 HlosSubType = BoardPlatformHlosSubType ();
+  UINT32 DdrTypeMsb  = (HlosSubType >> 12) & 0x3;
+  UINT32 DdrTypeLsb  = (HlosSubType >>  8) & 0x7;
+
+  return (DdrTypeMsb << 11) | (DdrTypeLsb << 8);
+}
+
 /* Add function to allocate dt entry list, used for recording
  *  the entry which conform to platform_dt_absolute_match()
  */
@@ -983,8 +993,8 @@ STATIC EFI_STATUS GetBoardMatchDtb (DtInfo *CurDtbInfo,
       return EFI_NOT_FOUND;
     }
 
-    if ((CurDtbInfo->DtPlatformSubtype & DDR_MASK) ==
-        (BoardPlatformHlosSubType() & DDR_MASK)) {
+    if ((CurDtbInfo->DtPlatformSubtype & DT_DDR_MASK) ==
+        GetBoardDdrValue ()) {
       CurDtbInfo->DtMatchVal |= BIT (DDR_MATCH);
     } else {
       DEBUG ((EFI_D_VERBOSE, "ddr size does not match\n"));
@@ -1518,8 +1528,8 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
   cur_dt_hw_platform = (cur_dt_entry->variant_id & 0x000000ff);
   cur_dt_hw_subtype = (cur_dt_entry->board_hw_subtype & 0xff);
 
-  /* Bits 10:8 contain ddr information */
-  cur_dt_hlos_ddr = (cur_dt_entry->board_hw_subtype & 0x700);
+  /* Bits [10:8] and [13:12] contain ddr information */
+  cur_dt_hlos_ddr = (cur_dt_entry->board_hw_subtype & DT_DDR_MASK);
 
   /* 1. must match the msm_id, platform_hw_id, platform_subtype and DDR size
    *    soc, board major/minor, pmic major/minor must less than board info
@@ -1530,7 +1540,7 @@ platform_dt_absolute_match (struct dt_entry *cur_dt_entry,
   if ((cur_dt_msm_id == (BoardPlatformRawChipId () & 0x0000ffff)) &&
       (cur_dt_hw_platform == BoardPlatformType ()) &&
       (cur_dt_hw_subtype == BoardPlatformSubType ()) &&
-      (cur_dt_hlos_ddr <= (BoardPlatformHlosSubType () & 0x700)) &&
+      (cur_dt_hlos_ddr <= GetBoardDdrValue ()) &&
       (cur_dt_entry->soc_rev <= BoardPlatformChipVersion ()) &&
       ((cur_dt_entry->variant_id & 0x00ffff00) <=
        (BoardTargetId () & 0x00ffff00)) &&
@@ -1602,8 +1612,8 @@ platform_dt_absolute_compat_match (struct dt_entry_node *dt_list,
       board_info = BoardPlatformFoundryId () << 16;
       break;
     case DTB_DDR:
-      current_info = ((dt_node_tmp1->dt_entry_m->board_hw_subtype) & 0x700);
-      board_info = (BoardPlatformHlosSubType () & 0x700);
+      current_info = ((dt_node_tmp1->dt_entry_m->board_hw_subtype) & DT_DDR_MASK);
+      board_info = (GetBoardDdrValue ());
       break;
     case DTB_PMIC_MODEL:
       for (i = 0; i < 4; i++) {
@@ -1647,7 +1657,7 @@ platform_dt_absolute_compat_match (struct dt_entry_node *dt_list,
       current_info = ((dt_node_tmp1->dt_entry_m->platform_id) & 0x00ff0000);
       break;
     case DTB_DDR:
-      current_info = ((dt_node_tmp1->dt_entry_m->board_hw_subtype) & 0x700);
+      current_info = ((dt_node_tmp1->dt_entry_m->board_hw_subtype) & DT_DDR_MASK);
       break;
     case DTB_PMIC_MODEL:
       for (i = 0; i < 4; i++) {

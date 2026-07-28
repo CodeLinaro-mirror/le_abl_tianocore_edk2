@@ -247,6 +247,17 @@ endtest:
   return eResult;
 }
 
+#ifdef ENABLE_DC_TARGET
+EFI_STATUS GetPlatformTypeData(UINT32 *PlatformType)
+{
+  if(PlatformType == NULL){
+    return EFI_INVALID_PARAMETER;
+  }
+  *PlatformType = platform_board_info.PlatformInfo.platform;
+  return EFI_SUCCESS;
+}
+#endif
+
 STATIC EFI_STATUS
 GetPmicInfoExt (UINT32 PmicDeviceIndex,
                 EFI_PM_DEVICE_INFO_EXT_TYPE *pmic_info_ext)
@@ -587,7 +598,7 @@ EFI_STATUS BoardInit (VOID)
   BootDeviceType = CheckRootDeviceType ();
 
   platform_board_info.HlosSubType = (BootDeviceType << BOOT_DEVICE_SHIFT);
-  platform_board_info.HlosSubType |= (DdrType << DDR_SHIFT);
+  platform_board_info.HlosSubType |= DDR_TYPE_TO_HLOS (DdrType);
 
   BoardSoftSKU (&SKUId);
   platform_board_info.SoftSKUId = SKUId;
@@ -889,20 +900,34 @@ EFI_STATUS BoardDdrType (UINT32 *Type)
   DEBUG ((EFI_D_INFO, "Total DDR Size: 0x%016lx \n", DdrSize));
 
   *Type = 0;
-  if (DdrSize <= DDR_8192MB) {
+  if (DdrSize <= DDR_1024MB) {
+    *Type = DDRTYPE_1024MB;
+  } else if (DdrSize <= DDR_2048MB) {
+    *Type = DDRTYPE_2048MB;
+  } else if (DdrSize <= DDR_4096MB) {
+    *Type = DDRTYPE_4096MB;
+  } else if (DdrSize <= DDR_8192MB) {
     *Type = DDRTYPE_8192MB;
   } else if (DdrSize <= DDR_12288MB) {
     *Type = DDRTYPE_12288MB;
+  } else if (DdrSize <= DDR_16384MB) {
+    *Type = DDRTYPE_16384MB;
   } else if (DdrSize <= DDR_18432MB) {
     *Type = DDRTYPE_18432MB;
   } else if (DdrSize <= DDR_24576MB) {
     *Type = DDRTYPE_24576MB;
+  } else if (DdrSize <= DDR_32768MB) {
+    *Type = DDRTYPE_32768MB;
   } else if (DdrSize <= DDR_36864MB) {
     *Type = DDRTYPE_36864MB;
   } else if (DdrSize <= DDR_49152MB) {
     *Type = DDRTYPE_49152MB;
   } else if (DdrSize <= DDR_65536MB) {
     *Type = DDRTYPE_65536MB;
+  } else if (DdrSize <= DDR_98304MB) {
+    *Type = DDRTYPE_98304MB;
+  } else if (DdrSize <= DDR_131072MB) {
+    *Type = DDRTYPE_131072MB;
   }
   return Status;
 }

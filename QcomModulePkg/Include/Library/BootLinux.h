@@ -146,6 +146,12 @@ typedef struct BootInfo {
   BOOLEAN FlashlessBoot;
   BOOLEAN BootIntoRecovery;
   BOOLEAN BootReasonAlarm;
+
+#ifdef ENABLE_DC_TARGET
+  BOOLEAN XipEnable;
+  UINT64 KernelXipAddr;
+#endif
+
   CHAR8 SilentBootMode;
   CHAR16 Pname[MAX_GPT_NAME_SIZE];
   CHAR16 BootableSlot[MAX_GPT_NAME_SIZE];
@@ -180,6 +186,11 @@ typedef struct BootLinuxParamlist {
 
   /* Load addresses for kernel, ramdisk, dt
    * These addresses are either predefined or get from UEFI core */
+
+#ifdef ENABLE_DC_TARGET
+  UINT64 KernelXipAddr;
+#endif
+
   UINT64 KernelLoadAddr;
   UINT64 KernelEndAddr;
   UINT64 RamdiskLoadAddr;
@@ -217,6 +228,11 @@ typedef struct BootLinuxParamlist {
   BOOLEAN BootingWith32BitKernel;
   BOOLEAN BootingWithPatchedKernel;
   BOOLEAN BootingWithGzipPkgKernel;
+
+#ifdef ENABLE_DC_TARGET
+  BOOLEAN XipEnable;
+#endif
+
   /* Valid only for boot image header version greater than 4
    * with init_boot partition
    */
