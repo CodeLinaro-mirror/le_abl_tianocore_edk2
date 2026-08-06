@@ -324,6 +324,16 @@ LocateImageNoAuth (BootInfo *Info, UINT32 *PageSize)
     return Status;
   }
 
+#ifdef ENABLE_DC_TARGET
+  if(Info->XipEnable){
+    UINT64 KernelOffset = *PageSize;
+    UINT64 KernelAddr = FlashlessBootImageAddr + KernelOffset;
+    DEBUG((EFI_D_VERBOSE, "XIP: Boot Image Address: 0x%llx\n", FlashlessBootImageAddr));
+    DEBUG((EFI_D_VERBOSE, "XIP: Kernel Address within Boot Image: 0x%llx\n", KernelAddr));
+    Info->KernelXipAddr = KernelAddr;
+  }
+#endif
+
   Info->NumLoadedImages = 1;
   Info->Images[0].Name = AllocateZeroPool (StrLen (Info->Pname) + 1);
   if (!Info->Images[0].Name) {

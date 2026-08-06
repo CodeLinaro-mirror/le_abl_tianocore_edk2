@@ -77,6 +77,12 @@ STATIC CONST CHAR8 *QSPAPrefix = "androidboot.vendor.qspa.";
                          CmdLineL += ParamLen; \
                        }\
                      } while (0);
+
+#ifdef ENABLE_DC_TARGET
+#define PCIE_EDL_FLASH 17
+#define QSPI_PCIE_FLASH 32
+#endif
+
 STATIC CONST CHAR8 *DynamicBootDeviceCmdLine =
                                       " androidboot.boot_devices=soc/";
 STATIC CONST CHAR8 *BootDeviceCmdLine = " androidboot.bootdevice=";
@@ -160,6 +166,13 @@ STATIC CONST CHAR8 *MemHpState = " memhp_default_state=online";
 STATIC CONST CHAR8 *MovableNode = " movable_node";
 
 STATIC CONST CHAR8 *WarmResetArgs = " reboot=w";
+
+#ifdef ENABLE_DC_TARGET
+/* Boot mode arguments*/
+UINT32 BootModeCmdLine = 0;
+STATIC CONST CHAR8 *pcieEdlFlash = " mhi_ep.bm=PcieEdlFlash";
+STATIC CONST CHAR8 *qspiPcieFlash = " mhi_ep.bm=QspiPcieFlash";
+#endif
 
 LIST_ENTRY *BootConfigListHead = NULL;
 EFI_STATUS
@@ -406,6 +419,27 @@ STATIC EFI_STATUS GetGpuCmdline (VOID)
   return Status;
 }
 
+#ifdef ENABLE_DC_TARGET
+STATIC EFI_STATUS GetBootModeCmdline (VOID)
+{
+  EFI_STATUS Status;
+  UINTN BootModeCmdLineSize = sizeof(BootModeCmdLine);
+
+  Status = gRT->GetVariable (
+    L"SharedImemBootCfgVal",
+    &gQcomTokenSpaceGuid,
+    NULL,
+    &BootModeCmdLineSize,
+    &BootModeCmdLine
+  );
+
+  if (EFI_ERROR(Status)) {
+    DEBUG ((EFI_D_ERROR, "Unable to get Boot Mode Config, %r\n", Status));
+  }
+
+  return Status;
+}
+#endif
 
 /*
  * Returns length = 0 when there is failure.
@@ -911,7 +945,16 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param, CHAR8 **FinalCmdLine,
     }
 #endif
   }
+#ifdef ENABLE_DC_TARGET
+  if (EFI_SUCCESS == GetBootModeCmdline ()) {
+   if (BootModeCmdLine == PCIE_EDL_FLASH)
+      Src = pcieEdlFlash;
+    else if (BootModeCmdLine == QSPI_PCIE_FLASH)
+      Src = qspiPcieFlash;
 
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+#endif
   return EFI_SUCCESS;
 }
 CHAR8* RemoveSpace (CHAR8* param, UINT32 ParamLen)
