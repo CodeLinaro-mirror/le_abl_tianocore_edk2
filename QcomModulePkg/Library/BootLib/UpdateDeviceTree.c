@@ -72,8 +72,8 @@ STATIC struct DisplaySplashBufferInfo splashBuf;
 STATIC UINTN splashBufSize = sizeof (splashBuf);
 STATIC RmVmGetHypResResponse *HypResources = NULL;
 STATIC INT32 ScmiChanOffset = -FDT_ERR_NOTFOUND;
-STATIC UINT32 AddressCells;
-STATIC UINT32 SizeCells;
+STATIC INT32 ShmemAddrCells = -1;
+STATIC INT32 ShmemSizeCells = -1;
 
 STATIC VOID
 PrintSplashMemInfo (CONST CHAR8 *data, INT32 datalen)
@@ -1355,41 +1355,6 @@ UpdateFstabNode (VOID *fdt)
   return Status;
 }
 
-STATIC EFI_STATUS
-GetCellCounts (IN VOID *fdt)
-{
-  CONST CHAR8 *Compatible = "mmio-sram";
-  INT32 Offset;
-
-  if (ScmiChanOffset >= 0) {
-    Offset = ScmiChanOffset;
-  } else {
-    Offset = fdt_node_offset_by_compatible (fdt, -1, Compatible);
-  }
-
-  if (Offset < 0) {
-    DEBUG ((EFI_D_ERROR, "sram dtb node not found\n"));
-    return EFI_NOT_FOUND;
-  }
-
-  AddressCells = fdt_address_cells (fdt, Offset);
-  if (AddressCells < 0) {
-    DEBUG ((EFI_D_ERROR, "#address-cells invalid for sram dtb node\n"));
-    return EFI_NOT_FOUND;
-  }
-
-  SizeCells = fdt_size_cells (fdt, Offset);
-  if (SizeCells < 0) {
-    DEBUG ((EFI_D_ERROR, "#size-cells invalid for sram dtb node\n"));
-    return EFI_NOT_FOUND;
-  }
-
-  DEBUG ((EFI_D_VERBOSE, "#address-cells=%d, #size-cells=%d\n", AddressCells,
-          SizeCells));
-
-  return EFI_SUCCESS;
-}
-
 EFI_STATUS
 FetchHypResources(VOID)
 {
@@ -1438,6 +1403,16 @@ GetDBCapId(IN UINT32 Label, OUT UINT64 *CapId)
 	return EFI_SUCCESS;
     }
 
+  /* Lookup miss: dump advertised doorbell-source labels for diagnosis. */
+  DEBUG ((EFI_D_VERBOSE,
+          "GetDBCapId: no match for Label=0x%x (entries=%u). Dumping doorbell-source labels:\n",
+          Label, HypResources->ResourceEntriesCount));
+  for (index = 0; index < HypResources->ResourceEntriesCount; index++) {
+    if (HypResources->ResEntries[index].ResourceType == VM_DOORBELL_SOURCE_OBJ) {
+      DEBUG ((EFI_D_VERBOSE, "  [%u] type=DB_SRC  label=0x%x\n",
+              index, HypResources->ResEntries[index].ResLabel));
+    }
+  }
   return EFI_NOT_FOUND;
 }
 
@@ -1445,6 +1420,7 @@ STATIC INT32
 FdtShmemNodeOffsetByPhandle (CONST VOID *fdt, UINT32 Phandle)
 {
   INT32 SubNodeOffset;
+  INT32 ResolvedOffset;
 
   if ((Phandle == 0) ||
       (Phandle == -1)) {
@@ -1452,17 +1428,31 @@ FdtShmemNodeOffsetByPhandle (CONST VOID *fdt, UINT32 Phandle)
   }
 
   if (ScmiChanOffset >= 0) {
+    /* Bounded walk of adjacent siblings under the alias — O(k). */
     for (SubNodeOffset = fdt_first_subnode (fdt, ScmiChanOffset);
          SubNodeOffset >= 0;
          SubNodeOffset = fdt_next_subnode (fdt, SubNodeOffset)) {
-      if (fdt_get_phandle (fdt, SubNodeOffset) == Phandle) {
+      if (fdt_get_phandle (fdt, SubNodeOffset) == Phandle)
         return SubNodeOffset;
-      }
     }
+  }
+
+  /*
+   * Bounded walk missed or no alias.  Fall back to global lookup but
+   * verify the resolved node is arm,scmi-shmem to reject unrelated nodes.
+   */
+  ResolvedOffset = fdt_node_offset_by_phandle (fdt, Phandle);
+  if (ResolvedOffset < 0)
+    return ResolvedOffset;
+
+  if (fdt_node_check_compatible (fdt, ResolvedOffset, "arm,scmi-shmem") != 0) {
+    DEBUG ((EFI_D_ERROR,
+            "shmem phandle 0x%x resolves to non-arm,scmi-shmem node\n",
+            Phandle));
     return -FDT_ERR_NOTFOUND;
   }
 
-  return fdt_node_offset_by_phandle (fdt, Phandle);
+  return ResolvedOffset;
 }
 
 STATIC EFI_STATUS
@@ -1472,6 +1462,8 @@ GetChannelInfo(IN VOID *fdt, IN INT32 Offset, OUT UINT32 *Address, OUT UINT32 *S
   const fdt32_t *Val;
   INT32 ShmemOffset;
   INT32 Len;
+  INT32 LocalAddrCells;
+  INT32 LocalSizeCells;
 
   Val = fdt_getprop(fdt, Offset, "shmem", &Len);
   if (!Val) {
@@ -1496,9 +1488,62 @@ GetChannelInfo(IN VOID *fdt, IN INT32 Offset, OUT UINT32 *Address, OUT UINT32 *S
     return EFI_NOT_FOUND;
   }
 
-  /* shmem for SCMI is < 4Gig i.e. it fits in 32 bits */
-  *Address = fdt32_to_cpu(*(Val + AddressCells - 1));
-  *Size = fdt32_to_cpu(*(Val + AddressCells + SizeCells - 1));
+  /* Cell counts computed once in UpdateScmiInfo and cached globally. */
+  LocalAddrCells = ShmemAddrCells;
+  LocalSizeCells = ShmemSizeCells;
+
+  /*
+   * Reject implausible cell counts before any size arithmetic.  Legal
+   * arm64 values are 1 or 2; anything larger is either a malformed DTB
+   * or an attacker-supplied blob trying to wrap the (cells * 4) product
+   * used in the length check below.
+   */
+  if (LocalAddrCells < 1 || LocalAddrCells > 2 ||
+      LocalSizeCells < 1 || LocalSizeCells > 2) {
+    DEBUG ((EFI_D_ERROR,
+            "shmem parent has implausible cell counts "
+            "(#address-cells=%d, #size-cells=%d)\n",
+            LocalAddrCells, LocalSizeCells));
+    return EFI_NOT_FOUND;
+  }
+
+  if (Len < (INT32)((LocalAddrCells + LocalSizeCells) * sizeof (fdt32_t))) {
+    DEBUG ((EFI_D_ERROR,
+            "shmem reg too short: len=%d, need %d (addr=%d, size=%d cells)\n",
+            Len,
+            (INT32)((LocalAddrCells + LocalSizeCells) * sizeof (fdt32_t)),
+            LocalAddrCells, LocalSizeCells));
+    return EFI_NOT_FOUND;
+  }
+
+  /*
+   * SCMI shmem fits in 32 bits on supported targets; take the low word
+   * of each cell tuple.  When the parent uses 2-cell addressing or
+   * sizing, the high word must be zero — otherwise we would silently
+   * truncate a >4 GiB address/size, which the rest of this code is not
+   * prepared to handle.  Reject loudly instead.
+   */
+  if (LocalAddrCells == 2 && fdt32_to_cpu (*Val) != 0) {
+    DEBUG ((EFI_D_ERROR,
+            "shmem address > 4 GiB unsupported (high=0x%x)\n",
+            fdt32_to_cpu (*Val)));
+    return EFI_NOT_FOUND;
+  }
+  if (LocalSizeCells == 2 &&
+      fdt32_to_cpu (*(Val + LocalAddrCells)) != 0) {
+    DEBUG ((EFI_D_ERROR,
+            "shmem size > 4 GiB unsupported (high=0x%x)\n",
+            fdt32_to_cpu (*(Val + LocalAddrCells))));
+    return EFI_NOT_FOUND;
+  }
+
+  *Address = fdt32_to_cpu (*(Val + LocalAddrCells - 1));
+  *Size    = fdt32_to_cpu (*(Val + LocalAddrCells + LocalSizeCells - 1));
+
+  DEBUG ((EFI_D_VERBOSE,
+          "GetChannelInfo: addr-cells=%d size-cells=%d "
+          "Address=0x%x Size=0x%x\n",
+          LocalAddrCells, LocalSizeCells, *Address, *Size));
 
   return Status;
 }
@@ -1657,13 +1702,63 @@ UpdateScmiInfo(VOID *fdt)
 
   ScmiChanOffset = FdtPathOffset (fdt, "scmichannels");
   if (ScmiChanOffset < 0) {
-    DEBUG ((EFI_D_VERBOSE, "No \'scmichannels\' alias found. Please create one\n"));
+    DEBUG ((EFI_D_VERBOSE, "No 'scmichannels' alias\n"));
   }
 
-  Status = GetCellCounts (fdt);
-  if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "Failed to get cell counts\n"));
-    return Status;
+  /* Reset cached cell counts to ensure no stale values from a prior call. */
+  ShmemAddrCells = -1;
+  ShmemSizeCells = -1;
+
+  /*
+   * Resolve shmem cell counts once.  With the alias, the alias target is
+   * the shmem container whose #address-cells/#size-cells describe the
+   * children's reg format.  Without it, locate the first qcom,scmi-smc
+   * channel's shmem phandle and derive cell counts from that node's
+   * parent.  This avoids a blind fdt_node_offset_by_compatible() scan
+   * that could hit unrelated arm,scmi-shmem nodes (e.g., PDP shmem).
+   */
+  if (ScmiChanOffset >= 0) {
+    ShmemAddrCells = fdt_address_cells (fdt, ScmiChanOffset);
+    ShmemSizeCells = fdt_size_cells (fdt, ScmiChanOffset);
+  } else {
+    INT32 ChanNode;
+    INT32 ShmemNode = -1;
+
+    /* Find the first qcom,scmi-smc channel and follow its shmem phandle. */
+    for (ChanNode = fdt_first_subnode (fdt, FwOffset);
+         ChanNode >= 0;
+         ChanNode = fdt_next_subnode (fdt, ChanNode)) {
+      if (!fdt_node_check_compatible (fdt, ChanNode, Compatible)) {
+        const fdt32_t *Ph;
+        INT32 PhLen;
+
+        Ph = fdt_getprop (fdt, ChanNode, "shmem", &PhLen);
+        if (Ph && PhLen == sizeof (*Ph)) {
+          ShmemNode = fdt_node_offset_by_phandle (fdt, fdt32_to_cpu (*Ph));
+          break;
+        }
+      }
+    }
+
+    if (ShmemNode >= 0) {
+      INT32 Parent = fdt_parent_offset (fdt, ShmemNode);
+
+      if (Parent >= 0) {
+        ShmemAddrCells = fdt_address_cells (fdt, Parent);
+        ShmemSizeCells = fdt_size_cells (fdt, Parent);
+      } else {
+        DEBUG ((EFI_D_VERBOSE, "Failed to get parent of shmem node: %d\n", Parent));
+      }
+    } else {
+      DEBUG ((EFI_D_VERBOSE, "No arm,scmi-shmem node found via fallback path\n"));
+    }
+  }
+
+  if (ShmemAddrCells < 1 || ShmemAddrCells > 2 ||
+      ShmemSizeCells < 1 || ShmemSizeCells > 2) {
+    DEBUG ((EFI_D_ERROR, "Invalid shmem cell counts: addr=%d size=%d\n",
+            ShmemAddrCells, ShmemSizeCells));
+    return EFI_NOT_FOUND;
   }
 
   for (SubNodeOffset = fdt_first_subnode(fdt, FwOffset);

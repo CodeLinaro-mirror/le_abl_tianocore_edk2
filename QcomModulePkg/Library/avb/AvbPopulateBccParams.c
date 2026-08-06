@@ -60,8 +60,7 @@ PopulateAuthorityHash (AvbSlotVerifyData *SlotData, BccParams_t *bcc_params)
             avb_sha512_update (&Ctx, PkData, PkLen);
         }
     }
-    if (&Ctx == NULL ||
-        bcc_params->ChildImage.AuthorityHash == NULL) {
+    if (bcc_params->ChildImage.AuthorityHash == NULL) {
         Status = EFI_INVALID_PARAMETER;
         goto out;
     }
@@ -102,8 +101,10 @@ PopulateBccImgParams (AvbSlotVerifyData *SlotData, BootInfo *Info,
 
     if (SlotData->loaded_partitions[PartitionIndex].partition_name == NULL ||
         bcc_params->ChildImage.ComponentName == NULL ||
-        SlotData->loaded_partitions[PartitionIndex].data == NULL ||
-        bcc_params->ChildImage.CodeHash == NULL) {
+        bcc_params->ChildImage.CodeHash == NULL ||
+        (Info->HasSdvDiceEnabled ?
+            SlotData->loaded_partitions[PartitionIndex].digest == NULL :
+            SlotData->loaded_partitions[PartitionIndex].data == NULL)) {
         Status = EFI_INVALID_PARAMETER;
         goto out;
     }
@@ -126,9 +127,15 @@ PopulateBccImgParams (AvbSlotVerifyData *SlotData, BootInfo *Info,
     bcc_params->ChildImage.ComponentName[PnameLen] = '\0';
 
     avb_sha512_init (&CodeCtx);
-    avb_sha512_update (&CodeCtx,
-                       SlotData->loaded_partitions[PartitionIndex].data,
-                       SlotData->loaded_partitions[PartitionIndex].data_size);
+    if (Info->HasSdvDiceEnabled) {
+        avb_sha512_update (&CodeCtx,
+                           SlotData->loaded_partitions[PartitionIndex].digest,
+                           SlotData->loaded_partitions[PartitionIndex].digest_size);
+    } else {
+        avb_sha512_update (&CodeCtx,
+                           SlotData->loaded_partitions[PartitionIndex].data,
+                           SlotData->loaded_partitions[PartitionIndex].data_size);
+    }
 
     /* For SDV, Vbmeta images are also included in the CodeDigest. */
     if (Info->HasSdvDiceEnabled) {

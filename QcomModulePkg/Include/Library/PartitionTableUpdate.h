@@ -56,6 +56,17 @@ typedef enum {
   PARTITION_ALL,
 } UPDATE_TYPE;
 
+/*
+ * Gate for storing GPT attributes in the recoveryinfo partition instead of
+ * updating them in the GPT partition table. Driven by the build-time config
+ * STORE_GPT_ATTR_IN_RECOVERYINFO.
+ */
+#ifdef STORE_GPT_ATTR_IN_RECOVERYINFO
+#define USE_RECOVERYINFO_GPT TRUE
+#else
+#define USE_RECOVERYINFO_GPT FALSE
+#endif
+
 #define PARTITION_ATTRIBUTES_MASK 0x1
 #define PARTITION_GUID_MASK 0x2
 
@@ -222,6 +233,7 @@ BOOLEAN
 PartitionHasMultiSlot (CONST CHAR16 *Pname);
 EFI_STATUS EnumeratePartitions (VOID);
 VOID UpdatePartitionEntries (VOID);
+EFI_STATUS UpdateRecoveryInfoMisc (VOID);
 VOID UpdatePartitionAttributes (UINT32 UpdateType);
 VOID FindPtnActiveSlot (VOID);
 EFI_STATUS
