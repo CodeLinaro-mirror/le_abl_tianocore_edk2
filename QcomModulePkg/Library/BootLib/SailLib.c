@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -217,7 +217,7 @@ SendToSailMailBox (IN CONST CHAR8 *Partition,
    }
 
    Status = gBS->WaitForEvent (1, &TimeoutEvent, &EventIndex);
-   if (Timeout++ == 6) {
+   if (Timeout++ == 20) {
      SailStatus = EFI_FAILURE;
      DEBUG ((EFI_D_ERROR, "SAIL Flashing Timed OUT\n"));
      break;
