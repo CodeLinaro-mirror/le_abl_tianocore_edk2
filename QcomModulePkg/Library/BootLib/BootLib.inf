@@ -78,6 +78,7 @@
 	EarlyEthernet.c
 	SailLib.c
 	RecoveryInfo.c
+	RecoveryPartitionUpdate.c
 
 [Packages]
 	ArmPkg/ArmPkg.dec
