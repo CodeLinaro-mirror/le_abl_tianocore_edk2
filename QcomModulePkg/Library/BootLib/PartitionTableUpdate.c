@@ -75,11 +75,16 @@ BOOLEAN GetEmmcMultiLunSupport (VOID)
 #endif
 
 extern BOOLEAN HasRISetActiveSlot;
+STATIC BOOLEAN BootHasMultiSlot;
+
+BOOLEAN IsBootMultiSlot (){
+  return BootHasMultiSlot;
+}
 
 Slot GetCurrentSlotSuffix (VOID)
 {
   Slot CurrentSlot = {{0}};
-  BOOLEAN IsMultiSlot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+  BOOLEAN IsMultiSlot = IsBootMultiSlot ();
 
   if (IsMultiSlot == FALSE) {
     return CurrentSlot;
@@ -130,10 +135,14 @@ VOID UpdatePartitionEntries (VOID)
   UINT32 i;
   UINT32 j;
   UINT32 Index = 0;
+  UINT32 SlotCount = 0;
   EFI_STATUS Status;
   EFI_PARTITION_ENTRY *PartEntry;
+  CONST CHAR16 *BootPname = L"boot";
+  UINT32 Len = StrLen (BootPname);
 
   PartitionCount = 0;
+  BootHasMultiSlot = FALSE;
   /*Nullify the PtnEntries array before using it*/
   gBS->SetMem ((VOID *)PtnEntries,
                (sizeof (PtnEntries[0]) * MAX_NUM_PARTITIONS), 0);
@@ -155,6 +164,17 @@ VOID UpdatePartitionEntries (VOID)
 
       gBS->CopyMem ((&PtnEntries[Index]), PartEntry, sizeof (PartEntry[0]));
       PtnEntries[Index].lun = i;
+
+      if (!(StrnCmp (PtnEntries[Index].PartEntry.PartitionName, BootPname, Len)) &&
+          PtnEntries[Index].PartEntry.PartitionName[Len] == L'_' &&
+          (PtnEntries[Index].PartEntry.PartitionName[Len + 1] == L'a' ||
+           PtnEntries[Index].PartEntry.PartitionName[Len + 1] == L'b') &&
+          PtnEntries[Index].PartEntry.PartitionName[Len + 2] == L'\0') {
+        if (++SlotCount > MIN_SLOTS) {
+          BootHasMultiSlot = TRUE;
+        }
+      }
+
     }
   }
   /* Back up the ptn entries */
@@ -842,12 +862,12 @@ PartitionHasMultiSlot (CONST CHAR16 *Pname)
         SlotCount++;
       } else if (PtnEntries[i].PartEntry.PartitionName[Len] == L'_' &&
                  (PtnEntries[i].PartEntry.PartitionName[Len + 1] == L'b')) {
-        if (IsRecoveryInfo ()) {
+        SlotCount++;
+        if (IsRecoveryInfo () && SlotCount > MIN_SLOTS) {
           DEBUG (( EFI_D_VERBOSE, "RecoveryInfo protocol is enabled and "
                                   "Mulitslot configuration is detected.\n"));
           return TRUE;
         }
-        SlotCount++;
       }
     }
 

@@ -218,7 +218,7 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
     HashSize = AsciiStrDecimalToUintn ((CHAR8 *) &DataSize[0]) + 8;
 
     /* Get system partition index */
-    MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+    MultiSlotBoot = IsBootMultiSlot ();
 
     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"system",
           StrLen ((CONST CHAR16 *)L"system"));

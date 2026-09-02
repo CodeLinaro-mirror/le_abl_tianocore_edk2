@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -77,7 +77,7 @@ EFI_STATUS RI_GetActiveSlot (Slot *ActiveSlot)
   Status = pRecoveryInfoProtocol -> GetBootSet (pRecoveryInfoProtocol,
                                                 &BootSet);
   if (Status != EFI_SUCCESS ||
-      BootSet == SET_INVALID) {
+      BootSet >= ARRAY_SIZE (Slots)) {
     DEBUG ((EFI_D_ERROR, "GetBootSet : Error returned %d", Status ));
     return Status;
   }

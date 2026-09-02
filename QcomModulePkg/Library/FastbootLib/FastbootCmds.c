@@ -1155,7 +1155,7 @@ HandleRawImgFlash (IN CHAR16 *PartitionName,
   UINT64 PartitionSize;
   EFI_HANDLE *Handle = NULL;
   CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
-  BOOLEAN MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+  BOOLEAN MultiSlotBoot = IsBootMultiSlot ();
   BOOLEAN HasSlot = FALSE;
 
   /* For multislot boot the partition may not support a/b slots.
@@ -1218,7 +1218,7 @@ HandleUbiImgFlash (
   UBI_FLASHER_HANDLE UbiFlasherHandle;
   EFI_HANDLE *Handle = NULL;
   CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
-  BOOLEAN MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+  BOOLEAN MultiSlotBoot = IsBootMultiSlot ();
   BOOLEAN HasSlot = FALSE;
   CHAR8 PartitionNameAscii[MAX_GPT_NAME_SIZE] = {'\0'};
   UINT64 PartitionSize = 0;
@@ -1748,7 +1748,7 @@ ReenumeratePartTable (VOID)
   IsBootPtnUpdated (Lun, &BootPtnUpdated);
   if (BootPtnUpdated) {
     /*Check for multislot boot support*/
-    MultiSlotBoot = PartitionHasMultiSlot (L"boot");
+    MultiSlotBoot = IsBootMultiSlot ();
     if (MultiSlotBoot) {
       if (IsRecoveryInfo () &&
           HasRIGetVarAll) {
@@ -1970,7 +1970,7 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
   /* Send okay for next data sending */
   if (sparse_header->magic == SPARSE_HEADER_MAGIC) {
 
-    MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+    MultiSlotBoot = IsBootMultiSlot ();
     if (MultiSlotBoot) {
       HasSlot = GetPartitionHasSlot (PartitionName,
                                      ARRAY_SIZE (PartitionName),
@@ -2106,7 +2106,7 @@ CmdErase (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
   CHAR16 OutputString[FASTBOOT_STRING_MAX_LENGTH];
   BOOLEAN HasSlot = FALSE;
   CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
-  BOOLEAN MultiSlotBoot = PartitionHasMultiSlot (L"boot");
+  BOOLEAN MultiSlotBoot = IsBootMultiSlot ();
   CHAR16 PartitionName[MAX_GPT_NAME_SIZE];
   CHAR8 EraseResultStr[MAX_RSP_SIZE] = "";
   VirtualAbMergeStatus SnapshotMergeStatus;
@@ -2217,7 +2217,7 @@ CmdSetActive (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
   UINT16 j = 0;
   BOOLEAN SlotVarUpdateComplete = FALSE;
   UINT32 SlotEnd = 0;
-  BOOLEAN MultiSlotBoot = PartitionHasMultiSlot (L"boot");
+  BOOLEAN MultiSlotBoot = IsBootMultiSlot ();
   Slot NewSlot = {{0}};
   EFI_STATUS Status;
 
@@ -2810,7 +2810,7 @@ CmdContinue (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
   CHAR8 Resp[MAX_RSP_SIZE];
   BootInfo Info = {0};
 
-  Info.MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+  Info.MultiSlotBoot = IsBootMultiSlot ();
   Status = LoadImageAndAuth (&Info, FALSE, FALSE
   #ifndef USE_DUMMY_BCC
                             , &BccParamsRecvdFromAVB
@@ -3035,7 +3035,7 @@ CmdBoot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
   Info.Images[0].ImageSize = Size;
   Info.Images[0].Name = "boot";
   Info.NumLoadedImages = 1;
-  Info.MultiSlotBoot = PartitionHasMultiSlot (L"boot");
+  Info.MultiSlotBoot = IsBootMultiSlot ();
 
   if (Info.MultiSlotBoot) {
     Status = ClearUnbootable ();
@@ -4153,7 +4153,7 @@ FastbootCommandSetup (IN VOID *Base, IN UINT64 Size)
   BOOLEAN BatterySocOk = FALSE;
   UINT32 BatteryVoltage = 0;
   UINT32 PartitionCount = 0;
-  BOOLEAN MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+  BOOLEAN MultiSlotBoot = IsBootMultiSlot ();
   MemCardType Type = UNKNOWN;
   VirtualAbMergeStatus SnapshotMergeStatus;
 

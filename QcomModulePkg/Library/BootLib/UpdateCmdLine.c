@@ -1427,7 +1427,7 @@ UpdateCmdLine (BootParamlist *BootParamlistPtr,
     AddtoBootConfigList (BootConfigFlag, MdtpActiveFlag, NULL,
                      BootConfigListHead, ParamLen, 0);
   }
-  MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+  MultiSlotBoot = IsBootMultiSlot ();
   if (MultiSlotBoot) {
     if (!IsBootDevImage ()) {
        if (IsLEVariant () &&
