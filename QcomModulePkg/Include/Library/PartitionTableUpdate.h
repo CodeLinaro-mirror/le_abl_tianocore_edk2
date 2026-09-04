@@ -231,6 +231,8 @@ INT32
 GetPartitionIndex (CHAR16 *PartitionName);
 BOOLEAN
 PartitionHasMultiSlot (CONST CHAR16 *Pname);
+BOOLEAN
+IsBootMultiSlot (VOID);
 EFI_STATUS EnumeratePartitions (VOID);
 VOID UpdatePartitionEntries (VOID);
 EFI_STATUS UpdateRecoveryInfoMisc (VOID);
