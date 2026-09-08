@@ -59,7 +59,7 @@ EFI_STATUS RI_GetActiveSlot (Slot *ActiveSlot)
   Status = pRecoveryInfoProtocol -> GetBootSet (pRecoveryInfoProtocol,
                                                 &BootSet);
   if (Status != EFI_SUCCESS ||
-      BootSet == SET_INVALID) {
+      BootSet >= ARRAY_SIZE (Slots)) {
     DEBUG ((EFI_D_ERROR, "GetBootSet : Error returned %d", Status ));
     return Status;
   }
