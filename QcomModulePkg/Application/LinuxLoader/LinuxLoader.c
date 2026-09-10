@@ -371,6 +371,13 @@ flashless_boot:
     BootLinux (&Info);
   }
 
+  if (IsTrialBootEnabled ()){
+    Slot CurrentSlot ;
+    CurrentSlot = GetCurrentSlotSuffix ();
+    RI_HandleFailedSlot (CurrentSlot);
+    /*No Return*/
+  }
+
 fastboot:
   if (FlashlessBoot) {
     DEBUG ((EFI_D_ERROR, "No fastboot support for flashless chipsets,"
