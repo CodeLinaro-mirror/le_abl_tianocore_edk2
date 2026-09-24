@@ -31,6 +31,9 @@
 /* Actual Size of BCC Configuration Descriptor field */
 #define BCC_CONFIG_DESCRIPTOR_TOTAL_SIZE 48
 
+#define BCC_SDV_SECURITY_VERSION 1
+#define BCC_SDV_COMPONENT_VERSION 1
+
 /* Set of information required to derive DICE artifacts for the child node. */
 typedef struct BccChildParams {
   UINT8 CodeHash[DICE_HASH_SIZE];      /* Code Hash */
@@ -314,12 +317,18 @@ GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   BccRoot.ChildImage.BccCfgDesc.component_name =
       BccParamsRecvdFromAVB.ChildImage.ComponentName;
 
-  // Copy image component version received from AVB
+  // Set image component version
   BccRoot.ChildImage.BccCfgDesc.component_version =
+      IsSdvDice ? BCC_SDV_COMPONENT_VERSION :
       BccParamsRecvdFromAVB.ChildImage.ComponentVersion;
 
-  // Copy device mode received from AVB
-  BccRoot.Mode = BccParamsRecvdFromAVB.Mode;
+  if (IsSdvDice) {
+    BccRoot.ChildImage.BccCfgDesc.security_version =
+        BCC_SDV_SECURITY_VERSION;
+  }
+
+  // SDV SW fallback: HW attestation unavailable, mark chain as non-production
+  BccRoot.Mode = IsSdvDice ? kDiceModeDebug : BccParamsRecvdFromAVB.Mode;
 
   // Finally select Config Descriptor fields to include in BCC input
   BccRoot.ChildImage.BccCfgDesc.configs =
@@ -526,9 +535,15 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   BccRoot.ChildImage.BccCfgDesc.component_name =
       BccParamsRecvdFromAVB.ChildImage.ComponentName;
 
-  // Copy image component version received from AVB
+  // Set image component version
   BccRoot.ChildImage.BccCfgDesc.component_version =
+      IsSdvDice ? BCC_SDV_COMPONENT_VERSION :
       BccParamsRecvdFromAVB.ChildImage.ComponentVersion;
+
+  if (IsSdvDice) {
+    BccRoot.ChildImage.BccCfgDesc.security_version =
+        BCC_SDV_SECURITY_VERSION;
+  }
 
   // Copy device mode received from AVB
   BccRoot.Mode = BccParamsRecvdFromAVB.Mode;
