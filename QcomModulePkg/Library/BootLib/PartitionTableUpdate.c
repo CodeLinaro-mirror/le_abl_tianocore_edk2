@@ -2004,6 +2004,12 @@ FindBootableSlot (Slot *BootableSlot)
 
   GUARD (GetActiveSlot (BootableSlot));
 
+  if (IsTrialBootEnabled ()) {
+    DEBUG ((EFI_D_VERBOSE, "Trial Boot is enabled, Skip updating partition "
+                         "attributes\n"));
+    return EFI_SUCCESS;
+  }
+
   if (USE_RECOVERYINFO_GPT) {
     SlotIdx = GetRecoveryInfoSlotIdx (BootableSlot);
     if (SlotIdx < 0) {
