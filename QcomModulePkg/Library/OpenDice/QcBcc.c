@@ -236,6 +236,7 @@ GetDICEFRS ()
 
 out:
   if (Devinfo) {
+    DiceClearMemory (NULL, sizeof (*Devinfo), Devinfo);
     FreePool (Devinfo);
     Devinfo = NULL;
   }
@@ -301,7 +302,8 @@ GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   EFI_STATUS Status = GetDICEFRS ();
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Failed to Fetch FRS: %r\n", Status));
-    return kDiceResultInvalidInput;
+    Result = kDiceResultInvalidInput;
+    goto out;
   }
 #endif
 
@@ -345,7 +347,7 @@ GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   Result = DiceDeriveCdiPrivateKeySeed (NULL, BccRoot.Uds, UdsPrivateKeySeed);
   if (Result != kDiceResultOk) {
     DEBUG ((EFI_D_ERROR, "Failed to derive a seed for Uds key pair.\n"));
-    return Result;
+    goto out;
   }
 
   //---------------------------------------------------------------------
@@ -361,7 +363,7 @@ GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
                            BccRoot.UdsPubKey, UdsPrivateKey);
   if (Result != kDiceResultOk) {
     DEBUG ((EFI_D_ERROR, "Failed to derive Uds key pair.\n"));
-    return Result;
+    goto out;
   }
 
   //---------------------------------------------------------------------
@@ -372,7 +374,7 @@ GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
       BccEncodedConfigDesc, &BccEncodedConfigDescValidSize);
   if (Result != kDiceResultOk) {
     DEBUG ((EFI_D_ERROR, "Failed to format config descriptor : %d\n", Result));
-    return Result;
+    goto out;
   }
 
   //---------------------------------------------------------------------
@@ -402,7 +404,7 @@ GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
                     NULL, BccCDIsOnly.NextCDIAttest, BccCDIsOnly.NextCDISeal);
   if (Result != kDiceResultOk) {
     DEBUG ((EFI_D_ERROR, "Failed to derive DICE CDIs : %d\n", Result));
-    return Result;
+    goto out;
   }
 
   //---------------------------------------------------------------------
@@ -428,6 +430,16 @@ GetSWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
       NULL /*context=*/, NextBccEncodedCDIs, NextBccEncodedCDIsValidSize,
       &BccInputValues, BccArtifactsBufferSize, FinalEncodedBccArtifacts,
       BccArtifactsValidSize);
+
+out:
+  DiceClearMemory (NULL, sizeof (UdsPrivateKeySeed), UdsPrivateKeySeed);
+  DiceClearMemory (NULL, sizeof (UdsPrivateKey), UdsPrivateKey);
+  DiceClearMemory (NULL, sizeof (NextBccEncodedCDIs), NextBccEncodedCDIs);
+  DiceClearMemory (NULL, sizeof (BccCDIsOnly), &BccCDIsOnly);
+  DiceClearMemory (NULL, sizeof (BccInputValues), &BccInputValues);
+  DiceClearMemory (NULL, sizeof (BccRoot), &BccRoot);
+  DiceClearMemory (NULL, sizeof (BccParamsRecvdFromAVB.Uds),
+                   BccParamsRecvdFromAVB.Uds);
   return Result;
 }
 
@@ -478,12 +490,14 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
     case IOpener_ERROR_NOT_FOUND:
     case IOpener_ERROR_PRIVILEGE:
     case IOpener_ERROR_NOT_SUPPORTED:
-      return kDiceResultNotSupported;
+      Result = kDiceResultNotSupported;
+      goto out;
 
     default:
       if (Status != EFI_SUCCESS) {
         DEBUG ((EFI_D_ERROR, "Failed to Fetch RkpBCC: %r\n", Status));
-        return kDiceResultInvalidInput;
+        Result = kDiceResultInvalidInput;
+        goto out;
       }
   }
 
@@ -501,7 +515,8 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
       return kDiceResultInvalidInput;
     }
 #endif
-    return kDiceResultInvalidInput;
+    Result = kDiceResultInvalidInput;
+    goto out;
   }
 
   //---------------------------------------------------------------------
@@ -519,7 +534,8 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   Status = GetDICEFRS ();
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Failed to Fetch FRS: %r\n", Status));
-    return kDiceResultInvalidInput;
+    Result = kDiceResultInvalidInput;
+    goto out;
   }
 #endif
 
@@ -565,7 +581,7 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
       BccEncodedConfigDesc, &BccEncodedConfigDescValidSize);
   if (Result != kDiceResultOk) {
     DEBUG ((EFI_D_ERROR, "Failed to format config descriptor : %d\n", Result));
-    return Result;
+    goto out;
   }
 
   //---------------------------------------------------------------------
@@ -594,6 +610,13 @@ GetHWBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
       NULL /*context=*/, NextBccEncodedCDIs, NextBccEncodedCDIsValidSize,
       &BccInputValues, BccArtifactsBufferSize, FinalEncodedBccArtifacts,
       BccArtifactsValidSize);
+
+out:
+  DiceClearMemory (NULL, sizeof (NextBccEncodedCDIs), NextBccEncodedCDIs);
+  DiceClearMemory (NULL, sizeof (BccInputValues), &BccInputValues);
+  DiceClearMemory (NULL, sizeof (BccRoot), &BccRoot);
+  DiceClearMemory (NULL, sizeof (BccParamsRecvdFromAVB.Uds),
+                   BccParamsRecvdFromAVB.Uds);
   return Result;
 }
 
@@ -647,5 +670,9 @@ GetBccArtifacts (UINT8 *FinalEncodedBccArtifacts,
   }
   DEBUG ((EFI_D_INFO, "BCC Generation is %r\n", Status));
 
+#ifndef USE_DUMMY_BCC
+  DiceClearMemory (NULL, sizeof (BccParamsRecvdFromAVB.Uds),
+                   BccParamsRecvdFromAVB.Uds);
+#endif
   return Status;
 }

@@ -43,6 +43,7 @@
 #include <Library/HypervisorMvCalls.h>
 #include <Library/Rtic.h>
 #include <Library/QcBcc.h>
+#include <dice/ops/clear_memory.h>
 #include <Protocol/EFIMdtp.h>
 #include <Protocol/EFIScmModeSwitch.h>
 #include <libufdt_sysdeps.h>
@@ -1032,13 +1033,13 @@ GenerateSdvDiceArtifacts (BootInfo *Info, BootParamlist *BootParamlistPtr)
   if (!QueryDiceParams (&DiceLoadAddr, &DiceSizeReserved)) {
     DEBUG ((EFI_D_ERROR, "Querying DICE memory parameters failed"));
     Status = EFI_FAILURE;
-    return Status;
+    goto out;
   }
 
   if (!DiceLoadAddr || !DiceSizeReserved) {
     DEBUG ((EFI_D_ERROR, "Wrong DICE memory parameters"));
     Status = EFI_FAILURE;
-    return Status;
+    goto out;
   }
 
   FinalEncodedBccArtifacts = (UINT8 *)DiceLoadAddr;
@@ -1057,12 +1058,17 @@ GenerateSdvDiceArtifacts (BootInfo *Info, BootParamlist *BootParamlistPtr)
   if (Ret != 0) {
     DEBUG ((EFI_D_ERROR, "BCC handover data generation failed\n"));
     Status = EFI_FAILURE;
-    return Status;
+    goto out;
   }
 
   DEBUG ((EFI_D_ERROR, "GenerateSdvDiceArtifacts: Generated at address 0x%x\n",
           FinalEncodedBccArtifacts));
 
+out:
+#ifndef USE_DUMMY_BCC
+  DiceClearMemory (NULL, sizeof (BccParamsRecvdFromAVB.Uds),
+                   BccParamsRecvdFromAVB.Uds);
+#endif
   return Status;
 }
 #endif
