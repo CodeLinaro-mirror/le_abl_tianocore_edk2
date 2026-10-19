@@ -12,10 +12,9 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-// ​​​​​Changes from Qualcomm Innovation Center, Inc. are provided
-// under the following license:
-// Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc.
-// All rights reserved. SPDX-License-Identifier: BSD-3-Clause-Clear
+// Changes from Qualcomm Technologies, Inc. are provided under the following license:
+// Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+// SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #ifdef ENABLE_C_HEADER
 #include <string.h>
@@ -166,6 +165,13 @@ DiceResult DiceMainFlow(void* context,
   if (next_cdi_certificate == NULL &&
       next_cdi_certificate_actual_size == NULL &&
       next_cdi_certificate_buffer_size == 0) {
+    goto out;
+  }
+
+  // Guard against partial arguments: if actual_size is NULL here, the
+  // caller provided an inconsistent set of certificate output parameters.
+  if (next_cdi_certificate_actual_size == NULL) {
+    result = kDiceResultInvalidInput;
     goto out;
   }
 
