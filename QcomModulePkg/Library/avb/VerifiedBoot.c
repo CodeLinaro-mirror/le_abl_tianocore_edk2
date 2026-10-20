@@ -88,6 +88,8 @@ STATIC struct boolean_string BooleanString[] = {
     {TRUE, "true"}
 };
 
+#define SDV_DICE_AVB_PROPERTY  "com.qualcomm.sdv.dice"
+
 typedef struct {
   AvbOps *Ops;
   AvbSlotVerifyData *SlotData;
@@ -1362,6 +1364,53 @@ IsValidPartition (Slot *Slot, CONST CHAR16 *Name)
 }
 
 
+#ifdef SDV_DICE_ENABLED
+STATIC BOOLEAN
+IsSdvDiceEnabledByAvbProperty (AvbSlotVerifyData *SlotData)
+{
+  CONST CHAR8 *PropValPtr;
+  UINTN PropValSize = 0;
+  AvbVBMetaImageHeader VbmetaHeader;
+
+  if (SlotData == NULL ||
+      SlotData->num_vbmeta_images == 0 ||
+      SlotData->vbmeta_images == NULL ||
+      SlotData->vbmeta_images[0].vbmeta_data == NULL ||
+      SlotData->vbmeta_images[0].vbmeta_size < sizeof (VbmetaHeader)) {
+    return FALSE;
+  }
+
+  avb_vbmeta_image_header_to_host_byte_order (
+      (CONST AvbVBMetaImageHeader *)SlotData->vbmeta_images[0].vbmeta_data,
+      &VbmetaHeader);
+  if (VbmetaHeader.flags & AVB_VBMETA_IMAGE_FLAGS_VERIFICATION_DISABLED) {
+    return FALSE;
+  }
+
+  PropValPtr = avb_property_lookup (
+      SlotData->vbmeta_images[0].vbmeta_data,
+      SlotData->vbmeta_images[0].vbmeta_size,
+      SDV_DICE_AVB_PROPERTY,
+      0,
+      &PropValSize);
+
+  if (PropValPtr == NULL || PropValSize != 1 || PropValPtr[0] != '1') {
+    return FALSE;
+  }
+
+  for (UINTN Index = 0; Index < SlotData->num_loaded_partitions; Index++) {
+    AvbPartitionData *Partition = &SlotData->loaded_partitions[Index];
+
+    if (AsciiStrCmp (Partition->partition_name, "boot") == 0) {
+      return (Partition->verify_result == AVB_SLOT_VERIFY_RESULT_OK &&
+              Partition->digest != NULL && Partition->digest_size != 0);
+    }
+  }
+
+  return FALSE;
+}
+#endif
+
 STATIC EFI_STATUS
 LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume,
                         BOOLEAN SetRotAndBootState
@@ -1777,12 +1826,19 @@ LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume,
         GUARD (AppendVBCmdLine (Info, " root=PARTLABEL=system_a"));
   }
 
+  Info->HasSdvDiceEnabled = FALSE;
+#ifdef SDV_DICE_ENABLED
+  Info->HasSdvDiceEnabled = (Result == AVB_SLOT_VERIFY_RESULT_OK &&
+                            IsSdvDiceEnabledByAvbProperty (SlotData));
+#endif
+
 #ifndef USE_DUMMY_BCC
   if (Info->HasSdvDiceEnabled) {
     EFI_STATUS BccStatus = PopulateBccParams (SlotData,
                                               Info,
                                               BccParams);
     if (BccStatus != EFI_SUCCESS) {
+        Info->HasSdvDiceEnabled = FALSE;
         DEBUG ((EFI_D_ERROR, "VB2: PopulateBccParams failed with Status: %r\n",
                 BccStatus));
     }
@@ -2059,6 +2115,8 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume,
     return EFI_INVALID_PARAMETER;
   }
 
+  Info->HasSdvDiceEnabled = FALSE;
+
   if (Info->FlashlessBoot) {
     goto get_ptn_name;
   }
@@ -2105,11 +2163,6 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume,
     FreePages (RecoveryHdr,
                ALIGN_PAGES (BOOT_IMG_MAX_PAGE_SIZE, ALIGNMENT_MASK_4KB));
   }
-
-  Info->HasSdvDiceEnabled = false;
-#ifdef SDV_DICE_ENABLED
-  Info->HasSdvDiceEnabled = true;
-#endif
 
 get_ptn_name:
   /* Get Partition Name*/
