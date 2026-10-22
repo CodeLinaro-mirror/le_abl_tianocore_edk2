@@ -14,9 +14,8 @@
 
 // For more information on the Android Profile for DICE, see docs/android.md.
 
-// ​Changes from Qualcomm Innovation Center, Inc. are provided
-// under the following license:
-// Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+// Changes from Qualcomm Technologies, Inc. are provided under the following license:
+// Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #ifdef ENABLE_C_HEADER
@@ -208,7 +207,7 @@ static DiceResult DiceAndroidMainFlowWithNewDiceChain(
                         next_cdi_attest, next_cdi_seal);
   *chain_size += encoded_size_used + encoded_pub_key_size;
   if (result != kDiceResultOk) {
-    return result;
+    goto out;
   }
 
 out:

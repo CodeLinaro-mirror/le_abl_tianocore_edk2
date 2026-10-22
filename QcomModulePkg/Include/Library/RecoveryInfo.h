@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -13,5 +14,5 @@ EFI_STATUS RI_GetActiveSlot (Slot *);
 EFI_STATUS RI_HandleFailedSlot (Slot);
 EFI_STATUS RI_SetActiveSlot (Slot *NewSlot);
 EFI_STATUS RI_GetVarAll ();
-
+BOOLEAN IsTrialBootEnabled ();
 #endif

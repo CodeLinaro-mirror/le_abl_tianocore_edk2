@@ -549,7 +549,7 @@ GetSoftSKUFeatureInfo (SOFT_SKU_SWCFG_FEATURE_ID FeatureID, UINT32 *FeatureVal)
 VOID BoardSoftSKU (UINT32 *SKUId)
 {
   EFI_STATUS Status;
-  UINT32 SwConfig, SubSKU;
+  UINT32 ProdConfig, OsConfig;
 
   if(!SKUId) {
     return;
@@ -557,22 +557,22 @@ VOID BoardSoftSKU (UINT32 *SKUId)
     *SKUId = BAD_SOFTSKU_ID;
   }
 
-  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_CHIP_SKU_ID, &SubSKU);
+  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_PRODUCT_CFG, &ProdConfig);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "Failed to get Sub SKU Data\n"));
-    SubSKU = BAD_SOFTSKU_ID;
+    DEBUG ((EFI_D_ERROR, "Failed to get Product Config Data\n"));
+    ProdConfig = BAD_SOFTSKU_ID;
     return;
   }
 
-  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_PRODUCT_CFG, &SwConfig);
+  Status = GetSoftSKUFeatureInfo(SOFT_SKU_SWCFG_OS_CFG, &OsConfig);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "Failed to get Sw Config Data\n"));
-    SwConfig = BAD_SOFTSKU_ID;
+    DEBUG ((EFI_D_ERROR, "Failed to get OS Config Data\n"));
+    OsConfig = BAD_SOFTSKU_ID;
     return;
   }
 
-  *SKUId = ((SwConfig << SOFTSKU_ID_SWCONFIG_SHFIT) |
-		  (SubSKU << SOFTSKU_ID_SUBSKU_SHIFT));
+  *SKUId = ((OsConfig << SOFTSKU_ID_OS_CONFIG_SHIFT) |
+		  (ProdConfig << SOFTSKU_ID_PROD_CONFIG_SHIFT));
 }
 
 EFI_STATUS BoardInit (VOID)

@@ -55,8 +55,8 @@
  * [including the GNU Public Licence.] */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include "../../../../../opendice-util.h"
@@ -272,14 +272,17 @@ const EVP_MD *EVP_MD_CTX_md(const EVP_MD_CTX *ctx) {
 }
 
 size_t EVP_MD_CTX_size(const EVP_MD_CTX *ctx) {
+  if (ctx == NULL) { return 0; }
   return EVP_MD_size(EVP_MD_CTX_md(ctx));
 }
 
 size_t EVP_MD_CTX_block_size(const EVP_MD_CTX *ctx) {
+  if (ctx == NULL) { return 0; }
   return EVP_MD_block_size(EVP_MD_CTX_md(ctx));
 }
 
 int EVP_MD_CTX_type(const EVP_MD_CTX *ctx) {
+  if (ctx == NULL) { return 0; }
   return EVP_MD_type(EVP_MD_CTX_md(ctx));
 }
 

@@ -130,14 +130,14 @@ struct BoardInfo {
 
  Each Nibble holds a configuration value
 
- Currently H will track Sub SKU ID and F will track Software Config.
+ Currently H will track OS Config and F will track Product Config.
 */
 
 #define BAD_SOFTSKU_ID  0xBADDEBAD
-#define SOFTSKU_ID_SUBSKU_SHIFT  0
-#define SOFTSKU_ID_SUBSKU_MASK  (0xf << SOFTSKU_ID_SUBSKU_SHIFT)
-#define SOFTSKU_ID_SWCONFIG_SHFIT  8
-#define SOFTSKU_ID_SWCONFIG_MASK  (0xf << SOFTSKU_ID_SWCONFIG_SHFIT)
+#define SOFTSKU_ID_OS_CONFIG_SHIFT  0
+#define SOFTSKU_ID_OS_CONFIG_MASK  (0xf << SOFTSKU_ID_OS_CONFIG_SHIFT)
+#define SOFTSKU_ID_PROD_CONFIG_SHIFT  8
+#define SOFTSKU_ID_PROD_CONFIG_MASK  (0xf << SOFTSKU_ID_PROD_CONFIG_SHIFT)
 
 extern BOOLEAN IsSoftSkuProtocolAvailable;
 

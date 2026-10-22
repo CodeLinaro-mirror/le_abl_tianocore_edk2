@@ -16,10 +16,15 @@ STATIC EFI_RECOVERYINFO_PROTOCOL *pRecoveryInfoProtocol = NULL;
 RecoveryBootVariableInfo RecoveryBootVarInfo;
 STATIC BootSetType BootSet = SET_INVALID;
 STATIC INT64 HasRecoveryInfo = -1;
-STATIC UINT32 Count = 1;
+STATIC INT64 TrialBootEnabled = 0;
 
 extern BOOLEAN HasRISetActiveSlot;
 extern BOOLEAN HasRIGetVarAll;
+
+BOOLEAN IsTrialBootEnabled ()
+{
+  return TrialBootEnabled;
+}
 
 BOOLEAN IsRecoveryInfo ()
 {
@@ -27,7 +32,7 @@ BOOLEAN IsRecoveryInfo ()
   RECOVERY_STATUS_STATE RecoveryState;
 
   if (HasRecoveryInfo == -1 ) {
-    DEBUG (( EFI_D_VERBOSE,  "Initializing HasRecoveryInfo\n"));
+    DEBUG ((EFI_D_VERBOSE, "Locating RecoveryInfo Protocol\n"));
     Status = gBS->LocateProtocol (& gEfiRecoveryInfoProtocolGuid, NULL,
                                   (VOID **) & pRecoveryInfoProtocol);
     if (Status != EFI_SUCCESS) {
@@ -38,25 +43,24 @@ BOOLEAN IsRecoveryInfo ()
     Status = pRecoveryInfoProtocol -> GetRecoveryState (pRecoveryInfoProtocol,
                                                         &RecoveryState);
     if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "GetRecoveryState failed\n"));
+      HasRecoveryInfo = 0;
+    } else {
       HasRecoveryInfo = 1;
-    } else if ((RecoveryState != RECOVERY_INFO_PARTITION_FAIL) &&
-         (Status == EFI_SUCCESS)) {
-      DEBUG (( EFI_D_INFO,  "RecoveryInfo is enabled\n"));
-      HasRecoveryInfo = 1;
+      if (RecoveryState == RECOVERY_INFO_TRIAL_BOOT) {
+        DEBUG ((EFI_D_ERROR, "Trial Boot is enabled\n"));
+        TrialBootEnabled = 1;
+      } else if (RecoveryState != RECOVERY_INFO_RECOVERY) {
+        HasRecoveryInfo = 0;
+      }
     }
-  }
 
-  if (Count == 1 &&
-      HasRecoveryInfo) {
-    if (pRecoveryInfoProtocol->Revision ==
+   if (HasRecoveryInfo &&
+       pRecoveryInfoProtocol->Revision ==
         EFI_RECOVERYINFO_PROTOCOL_REVISION_V1) {
       HasRISetActiveSlot = TRUE;
-    }
-    if (pRecoveryInfoProtocol->Revision ==
-        EFI_RECOVERYINFO_PROTOCOL_REVISION_V1) {
       HasRIGetVarAll = TRUE;
-    }
-    Count++;
+   }
   }
   return (HasRecoveryInfo == 1);
 }
@@ -110,7 +114,7 @@ EFI_STATUS RI_HandleFailedSlot (Slot ActiveSlot)
 
   Status = pRecoveryInfoProtocol->HandleFailedSet (pRecoveryInfoProtocol,
                                                     BootSet);
-  return EFI_UNSUPPORTED;
+  return Status;
 }
 
 EFI_STATUS RI_SetActiveSlot (Slot *NewSlot)
