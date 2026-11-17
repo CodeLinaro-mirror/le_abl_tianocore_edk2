@@ -170,10 +170,16 @@
   !if $(VERITY_LE)
       GCC:*_*_*_CC_FLAGS = -DVERITY_LE
   !endif
-  !if $(USER_BUILD_VARIANT) == 0
+  ## Variant configs: DEBUG=full diagnostics, USER=restricted fastboot,
+  ## PERF=all fastboot + no debug overhead (MDEPKG_NDEBUG via TARGET=RELEASE).
+  ## Add new variant-specific features inside the matching block below.
+  !if $(USER_BUILD_VARIANT) == 1
+      GCC:*_*_*_CC_FLAGS = -DUSER_BUILD_VARIANT
+  !elseif $(PERF_BUILD) == 1
+      GCC:*_*_*_CC_FLAGS = -DPERF_BUILD
       GCC:*_*_*_CC_FLAGS = -DENABLE_UPDATE_PARTITIONS_CMDS -DENABLE_BOOT_CMD -DENABLE_DEVICE_CRITICAL_LOCK_UNLOCK_CMDS
   !else
-      GCC:*_*_*_CC_FLAGS = -DUSER_BUILD_VARIANT
+      GCC:*_*_*_CC_FLAGS = -DENABLE_UPDATE_PARTITIONS_CMDS -DENABLE_BOOT_CMD -DENABLE_DEVICE_CRITICAL_LOCK_UNLOCK_CMDS
   !endif
   !if $(ENABLE_LE_VARIANT) == 1
       GCC:*_*_*_CC_FLAGS = -DENABLE_LE_VARIANT
